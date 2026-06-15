@@ -1,6 +1,6 @@
 import random
 from const import BLACK, WHITE
-
+from noise import Perlin2D
 
 
 class Nonogram:
@@ -34,10 +34,20 @@ class Nonogram:
         self.hints = [hor_state, ver_state]
 
 
-    def generate_board(self, rows, cols, seed, density):
+    def generate_board(self, rows, cols, seed, density, random_function='perlin2d', frequency=10):
         assert 2<rows<100 and 2<cols<100 and 0<density<1
-        random.seed(seed)
-        self.board = [[1 if random.random() < density else 0 for _ in range(cols)] for _ in range(rows)]
+        if random_function == 'random':
+            random.seed(seed)
+            self.board = [[1 if random.random() < density else 0 for x in range(cols)] for y in range(rows)]
+        elif random_function == 'perlin2d':
+            perlin = Perlin2D(seed=seed)
+            # for x in range(cols):
+            #     for y in range(rows):
+            #         print(round(perlin.noise(x/cols * frequency, y/rows * frequency), 2), end=' ')
+            #     print()
+            self.board = [[1 if perlin.noise(x/cols * frequency, y/rows * frequency) < density else 0 for x in range(cols)] for y in range(rows)]
+        else:
+            return 
         self.compute_hints()
 
     def get_board(self):
@@ -59,7 +69,10 @@ class Nonogram:
             for i in range(hint_length_ver):
                 print(preamble, end='')
                 for j in range(len(self.board[0])):
-                    print(hints1_with_padding[j][i], end=' ')
+                    if len(str(hints1_with_padding[j][i])) >= 2:
+                        print(hints1_with_padding[j][i], end='')
+                    else:
+                        print(hints1_with_padding[j][i], end=' ')
                 print()
             print(preamble[:-2] + '+' + '-'*len(self.board[0]*2))
 
@@ -80,5 +93,5 @@ class Nonogram:
 
 if __name__ == "__main__":
     n = Nonogram()
-    n.generate_board(rows=15, cols=15, seed=42, density=0.3)
+    n.generate_board(rows=15, cols=15, seed=42, density=0.5)
     print(n)
