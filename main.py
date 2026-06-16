@@ -129,37 +129,72 @@ class Solver:
     def solve(self):
         # step 1 - find all possible combinations, then fill in overlaps
         # horisontal
-        for i in range(len(self.nonogram.board)):
-            row = self.nonogram.board[i]
-            hint = self.nonogram.hints[0][i]
-            overlaps = [1 for _ in range(len(row))] # black
-            overlaps1 = [1 for _ in range(len(row))] # white
-            for r in self._generate_rows(len(row), hint):
-                for j in range(len(row)):
-                    overlaps[j] &= r[j]
-                    overlaps1[j] &= (1-r[j])
+        for iteration in range(100):
+            if self.nonogram.solved:
+                print(f"Solved in {iteration} iterations!")
+                return
+            for i in range(len(self.nonogram.state)):
+                row = self.nonogram.state[i]
+                hint = self.nonogram.hints[0][i]
+                if all([cell != 0 for cell in row]):
+                    continue
+                overlaps = [1 for _ in range(len(row))] # black
+                overlaps1 = [1 for _ in range(len(row))] # white
+                for r in self._generate_rows(len(row), hint):
 
-            for a, b in enumerate(overlaps):
-                if self.nonogram.state[i][a] == 0 and b == 1:
-                    self.nonogram.move(i, a, 1)
-                if self.nonogram.state[i][a] == 0 and overlaps1[a] == 1:
-                    self.nonogram.move(i, a, -1)
-        
-        # vertical
-        for j in range(len(self.nonogram.board[0])):
-            row = [self.nonogram.board[i][j] for i in range(len(self.nonogram.board))]
-            hint = self.nonogram.hints[1][j]
-            overlaps = [1 for _ in range(len(row))] # black
-            overlaps1 = [1 for _ in range(len(row))] # white
-            for r in self._generate_rows(len(row), hint):
-                for k in range(len(row)):
-                    overlaps[k] &= r[k]
-                    overlaps1[k] &= (1-r[k])
-            for a, b in enumerate(overlaps):
-                if self.nonogram.state[a][j] == 0 and b == 1:
-                    self.nonogram.move(a, j, 1)
-                if self.nonogram.state[a][j] == 0 and overlaps1[a] == 1:
-                    self.nonogram.move(a, j, -1)
+                    # conformity check
+                    skiprow = False
+                    for p in range(len(row)):  
+                        if row[p] == 1 and r[p] != 1:
+                            skiprow = True
+                            break
+                        if row[p] == -1 and r[p] != 0:
+                            skiprow = True
+                            break
+                    if skiprow:
+                        continue
+
+                    for j in range(len(row)):
+                        overlaps[j] &= r[j]
+                        overlaps1[j] &= (1-r[j])
+
+                for a, b in enumerate(overlaps):
+                    if self.nonogram.state[i][a] == 0 and b == 1:
+                        self.nonogram.move(i, a, 1)
+                    if self.nonogram.state[i][a] == 0 and overlaps1[a] == 1:
+                        self.nonogram.move(i, a, -1)
+            
+            # vertical
+            for j in range(len(self.nonogram.state[0])):
+                row = [self.nonogram.state[i][j] for i in range(len(self.nonogram.state))]
+                hint = self.nonogram.hints[1][j]
+                if all([cell != 0 for cell in row]):
+                    continue
+                overlaps = [1 for _ in range(len(row))] # black
+                overlaps1 = [1 for _ in range(len(row))] # white
+                for r in self._generate_rows(len(row), hint):
+                    # conformity check
+                    skiprow = False
+                    for p in range(len(row)):  
+                        if row[p] == 1 and r[p] != 1:
+                            skiprow = True
+                            break
+                        if row[p] == -1 and r[p] != 0:
+                            skiprow = True
+                            break
+                    if skiprow:
+                        continue
+
+                    for k in range(len(row)):
+                        overlaps[k] &= r[k]
+                        overlaps1[k] &= (1-r[k])
+                for a, b in enumerate(overlaps):
+                    if self.nonogram.state[a][j] == 0 and b == 1:
+                        self.nonogram.move(a, j, 1)
+                    if self.nonogram.state[a][j] == 0 and overlaps1[a] == 1:
+                        self.nonogram.move(a, j, -1)
+
+        print("Couldn't solve in 100 iterations, giving up.")
 
     
     def _generate_rows(self, length, runs):
@@ -193,7 +228,8 @@ class Solver:
 
 if __name__ == "__main__":
     n = Nonogram()
-    n.generate_board(rows=10, cols=10, seed=3, density=0.5)
+    n.generate_board(rows=15, cols=15, seed=3, density=0.5)
+    print(n)
     s = Solver(n)
     s.solve()
     print(n)
