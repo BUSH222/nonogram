@@ -12,4 +12,5 @@ class bcolors:
 
 BLACK = bcolors.OKCYAN + u'\u25a0' + bcolors.ENDC
 WHITE = bcolors.ENDC + u'\u25a1'
-X_char = bcolors.WARNING + u'\u2612' + bcolors.ENDC
+X_CHAR = bcolors.WARNING + u'\u2612' + bcolors.ENDC
+RANDOM_FUNCTIONS = ('perlin2d', 'random')

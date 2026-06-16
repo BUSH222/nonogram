@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nonogram</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+
+<div id="nonogram" class="loading">
+  <div id="top-row">
+    <div id="corner"></div>
+    <div id="col-hints"></div>
+  </div>
+  <div id="middle-row">
+    <div id="row-hints"></div>
+    <div id="grid-wrap">
+      <div id="grid"></div>
+    </div>
+  </div>
+  <div id="details"></div>
+  <div id="error-msg"></div>
+</div>
+
+<script src="/static/game.js"></script>
+</body>
+</html>

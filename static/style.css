@@ -1,0 +1,133 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    /* ── Puzzle container ─────────────────────────────────────────────── */
+    #nonogram {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      user-select: none;
+    }
+
+    /* ── Top area: corner + column hints ─────────────────────────────── */
+    #top-row {
+      display: flex;
+      align-items: flex-end;   /* hints sit flush against the grid top */
+      flex-shrink: 0;
+    }
+
+    #corner {
+      flex-shrink: 0;
+      /* width & height set by JS to match hint-row height + left-hint width */
+    }
+
+    #col-hints {
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;          /* clip, not scroll — height is capped */
+      flex-shrink: 0;
+    }
+
+    .col-hint {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    /* ── Middle area: row hints + grid ───────────────────────────────── */
+    #middle-row {
+      display: flex;
+      flex-direction: row;
+      overflow: auto;            /* scroll when grid overflows viewport */
+    }
+
+    #row-hints {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .row-hint {
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Hint numbers ─────────────────────────────────────────────────── */
+    .hint-num {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #111;
+      line-height: 1;
+      cursor: pointer;
+      transition: color 0.15s;
+      white-space: nowrap;
+    }
+    .hint-num.highlighted { color: rgb(237, 112, 45); }
+
+    /* ── The grid ─────────────────────────────────────────────────────── */
+    #grid-wrap {
+      flex-shrink: 0;
+    }
+
+    #grid {
+      display: grid;
+      /* grid-template-columns/rows set dynamically by JS */
+    }
+
+    /* ── Individual cells ─────────────────────────────────────────────── */
+    .cell {
+      position: relative;
+      cursor: pointer;
+      background: #fff;
+      transition: background 0.07s;
+      /* border drawn via box-shadow trick — see JS for border assignment */
+    }
+
+    /* cell states */
+    .cell.filled  { background: #111; }
+    .cell.marked  { background: #fff; }
+
+    /* X marker */
+    .cell.marked::after {
+      content: '❌';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65em;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    /* ── Details strip ────────────────────────────────────────────────── */
+    #details {
+      margin-top: 1rem;
+      font-size: 0.68rem;
+      color: #aaa;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Loading / error states ───────────────────────────────────────── */
+    #nonogram.loading { opacity: 0.4; pointer-events: none; }
+    #error-msg {
+      color: #c00;
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+      display: none;
+    }

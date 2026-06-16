@@ -1,5 +1,5 @@
 import random
-from nonogram.const import BLACK, WHITE, X_char
+from nonogram.const import BLACK, RANDOM_FUNCTIONS, WHITE, X_CHAR
 from nonogram.noise import Perlin2D
 
 
@@ -8,6 +8,7 @@ class Nonogram:
         self.board = []  # 1 is black, 0 is white - ground truth
         self.state = []  # user progress, 1 for black, 0 for white, -1 for x
         self.hints = [[], []]  # top hints bar first
+        self.details = {}
 
     @property
     def solved(self):
@@ -41,7 +42,10 @@ class Nonogram:
         self.state[x][y] = value
 
     def generate_board(self, rows, cols, seed, density, random_function='perlin2d', frequency=6):
-        assert 2 < rows < 100 and 2 < cols < 100 and 0 < density < 1 and random_function in ['random', 'perlin2d']
+        assert 2 < rows < 100 and 2 < cols < 100 and 0 < density < 1 and random_function in RANDOM_FUNCTIONS, \
+            "Invalid parameters"
+        self.details = {"rows": rows, "cols": cols, "seed": seed, "density": density,
+                        "random_function": random_function, "frequency": frequency}
         if random_function == 'random':
             random.seed(seed)
             self.board = [[1 if random.random() < density else 0 for x in range(cols)] for y in range(rows)]
@@ -76,7 +80,10 @@ class Nonogram:
 
         self.hints = [hor_state, ver_state]
 
-    def get_board(self, target='board'):
+    def get_board(self):
+        return {"state": self.state, "hints": self.hints, "details": self.details}
+
+    def print_board(self, target='board'):
         assert target in ['board', 'state']
         if target == 'board':
             tgt = self.board
@@ -114,10 +121,10 @@ class Nonogram:
                 elif tgt[i][j] == 0:
                     print(WHITE, end=' ')
                 elif tgt[i][j] == -1:
-                    print(X_char, end=' ')
+                    print(X_CHAR, end=' ')
             print()
         return ''
 
     def __repr__(self):
-        self.get_board(target='state')
+        self.print_board(target='state')
         return ''

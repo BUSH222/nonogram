@@ -49,7 +49,7 @@ class Solver:
 
             if self.do_step:
                 print(f"Iteration {iteration} in progress, horizontal solved, state:")
-                self.nonogram.get_board(target='state')
+                self.nonogram.print_board(target='state')
                 input()
 
             # vertical
@@ -87,7 +87,7 @@ class Solver:
 
             if self.do_step:
                 print(f"Iteration {iteration} completed, current state:")
-                self.nonogram.get_board(target='state')
+                self.nonogram.print_board(target='state')
                 input()
         return 0
 
