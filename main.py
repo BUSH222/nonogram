@@ -1,6 +1,7 @@
 import random
 from const import BLACK, WHITE, X_char
 from noise import Perlin2D
+from itertools import combinations
 
 
 class Nonogram:
@@ -87,7 +88,7 @@ class Nonogram:
 
             hints1_with_padding = []
             for i in range(len(self.hints[1])):
-                hints1_with_padding.append(self.hints[1][i])
+                hints1_with_padding.append(self.hints[1][i].copy())
                 for _ in range(hint_length_ver-len(hints1_with_padding[i])):
                     hints1_with_padding[i].insert(0, ' ')
 
@@ -120,12 +121,73 @@ class Nonogram:
     def __repr__(self):
         self.get_board(target='state')
         return ''
+    
+
+class Solver:
+    def __init__(self, nonogram):
+        self.nonogram = nonogram
+    def solve(self):
+        # step 1 - find all possible combinations, then fill in overlaps
+        # horisontal
+        for i in range(len(self.nonogram.board)):
+            row = self.nonogram.board[i]
+            hint = self.nonogram.hints[0][i]
+            overlaps = [1 for _ in range(len(row))] # black
+            for r in self._generate_rows(len(row), hint):
+                for j in range(len(row)):
+                    overlaps[j] &= r[j]
+
+            for a, b in enumerate(overlaps):
+                if self.nonogram.state[i][a] == 0 and b == 1:
+                    self.nonogram.move(i, a, 1)
+        
+        # vertical
+        for j in range(len(self.nonogram.board[0])):
+            row = [self.nonogram.board[i][j] for i in range(len(self.nonogram.board))]
+            hint = self.nonogram.hints[1][j]
+            overlaps = [1 for _ in range(len(row))] # black
+            for r in self._generate_rows(len(row), hint):
+                for k in range(len(row)):
+                    overlaps[k] &= r[k]
+
+            for a, b in enumerate(overlaps):
+                if self.nonogram.state[a][j] == 0 and b == 1:
+                    self.nonogram.move(a, j, 1)
+
+    
+    def _generate_rows(self, length, runs):
+        try:
+            total_black = sum(runs)
+        except:
+            print("runs:", runs)
+            for item in runs:
+                print(item, type(item))
+        extra = length - (total_black + len(runs) - 1)
+        assert extra >= 0
+        gaps = len(runs) + 1
+        for bars in combinations(range(extra + gaps - 1), gaps - 1):
+            values = []
+            prev = -1
+
+            for bar in bars:
+                values.append(bar - prev - 1)
+                prev = bar
+            values.append(extra + gaps - 1 - prev - 1)
+
+            row = []
+            row.extend([0] * values[0])
+            for i, run in enumerate(runs):
+                row.extend([1] * run)
+                if i < len(runs) - 1:
+                    row.extend([0] * (1 + values[i + 1]))
+            row.extend([0] * values[-1])
+            yield row
 
 
 if __name__ == "__main__":
     n = Nonogram()
-    n.generate_board(rows=15, cols=15, seed=42, density=0.5)
-    n.get_board()
-    for _ in range(30):
-        n.move(random.randint(0, 14), random.randint(0, 14), random.choice([1, 0, -1]))
+    n.generate_board(rows=10, cols=10, seed=3, density=0.5)
+    s = Solver(n)
+    s.solve()
     print(n)
+    print(n.get_board())
