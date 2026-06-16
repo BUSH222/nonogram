@@ -10,7 +10,6 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-
 BLACK = bcolors.OKCYAN + u'\u25a0' + bcolors.ENDC
 WHITE = bcolors.ENDC + u'\u25a1'
 X_char = bcolors.WARNING + u'\u2612' + bcolors.ENDC

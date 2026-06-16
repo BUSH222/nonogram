@@ -5,6 +5,7 @@ class Solver:
     def __init__(self, nonogram, do_step=False):
         self.nonogram = nonogram
         self.do_step = do_step
+
     def solve(self):
         # find all possible combinations, then fill in overlaps
         # horisontal
@@ -19,12 +20,12 @@ class Solver:
                 hint = self.nonogram.hints[0][i]
                 if all([cell != 0 for cell in row]):
                     continue
-                overlaps = [1 for _ in range(len(row))] # black
-                overlaps1 = [1 for _ in range(len(row))] # white
+                overlaps = [1 for _ in range(len(row))]  # black
+                overlaps1 = [1 for _ in range(len(row))]  # white
                 for r in self._generate_rows(len(row), hint):
                     # conformity check
                     skiprow = False
-                    for p in range(len(row)):  
+                    for p in range(len(row)):
                         if row[p] == 1 and r[p] != 1:
                             skiprow = True
                             break
@@ -45,7 +46,7 @@ class Solver:
                     if self.nonogram.state[i][a] == 0 and overlaps1[a] == 1:
                         self.nonogram.move(i, a, -1)
                         changed = True
-            
+
             if self.do_step:
                 print(f"Iteration {iteration} in progress, horizontal solved, state:")
                 self.nonogram.get_board(target='state')
@@ -57,12 +58,12 @@ class Solver:
                 hint = self.nonogram.hints[1][j]
                 if all([cell != 0 for cell in row]):
                     continue
-                overlaps = [1 for _ in range(len(row))] # black
-                overlaps1 = [1 for _ in range(len(row))] # white
+                overlaps = [1 for _ in range(len(row))]  # black
+                overlaps1 = [1 for _ in range(len(row))]  # white
                 for r in self._generate_rows(len(row), hint):
                     # conformity check
                     skiprow = False
-                    for p in range(len(row)):  
+                    for p in range(len(row)):
                         if row[p] == 1 and r[p] != 1:
                             skiprow = True
                             break
@@ -88,11 +89,8 @@ class Solver:
                 print(f"Iteration {iteration} completed, current state:")
                 self.nonogram.get_board(target='state')
                 input()
-
-
         return 0
 
-    
     def _generate_rows(self, length, runs):
         total_black = sum(runs)
         extra = length - (total_black + len(runs) - 1)
