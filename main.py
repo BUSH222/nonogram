@@ -133,26 +133,33 @@ class Solver:
             row = self.nonogram.board[i]
             hint = self.nonogram.hints[0][i]
             overlaps = [1 for _ in range(len(row))] # black
+            overlaps1 = [1 for _ in range(len(row))] # white
             for r in self._generate_rows(len(row), hint):
                 for j in range(len(row)):
                     overlaps[j] &= r[j]
+                    overlaps1[j] &= (1-r[j])
 
             for a, b in enumerate(overlaps):
                 if self.nonogram.state[i][a] == 0 and b == 1:
                     self.nonogram.move(i, a, 1)
+                if self.nonogram.state[i][a] == 0 and overlaps1[a] == 1:
+                    self.nonogram.move(i, a, -1)
         
         # vertical
         for j in range(len(self.nonogram.board[0])):
             row = [self.nonogram.board[i][j] for i in range(len(self.nonogram.board))]
             hint = self.nonogram.hints[1][j]
             overlaps = [1 for _ in range(len(row))] # black
+            overlaps1 = [1 for _ in range(len(row))] # white
             for r in self._generate_rows(len(row), hint):
                 for k in range(len(row)):
                     overlaps[k] &= r[k]
-
+                    overlaps1[k] &= (1-r[k])
             for a, b in enumerate(overlaps):
                 if self.nonogram.state[a][j] == 0 and b == 1:
                     self.nonogram.move(a, j, 1)
+                if self.nonogram.state[a][j] == 0 and overlaps1[a] == 1:
+                    self.nonogram.move(a, j, -1)
 
     
     def _generate_rows(self, length, runs):
