@@ -124,8 +124,9 @@ class Nonogram:
     
 
 class Solver:
-    def __init__(self, nonogram):
+    def __init__(self, nonogram, do_step=False):
         self.nonogram = nonogram
+        self.do_step = do_step
     def solve(self):
         # find all possible combinations, then fill in overlaps
         # horisontal
@@ -167,6 +168,11 @@ class Solver:
                         self.nonogram.move(i, a, -1)
                         changed = True
             
+            if self.do_step:
+                print(f"Iteration {iteration} in progress, horizontal solved, state:")
+                self.nonogram.get_board(target='state')
+                input()
+
             # vertical
             for j in range(len(self.nonogram.state[0])):
                 row = [self.nonogram.state[i][j] for i in range(len(self.nonogram.state))]
@@ -199,6 +205,11 @@ class Solver:
                         self.nonogram.move(a, j, -1)
                         changed = True
             iteration += 1
+
+            if self.do_step:
+                print(f"Iteration {iteration} completed, current state:")
+                self.nonogram.get_board(target='state')
+                input()
 
 
         return 0
@@ -237,7 +248,5 @@ if __name__ == "__main__":
     n = Nonogram()
     n.generate_board(rows=15, cols=15, seed=4, density=0.5)
     print(n)
-    s = Solver(n)
+    s = Solver(n, do_step=True)
     s.solve()
-    print(n)
-    print(n.get_board())
