@@ -3,26 +3,173 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nonogram</title>
+  <title>Nonogram - New Game</title>
   <link rel="stylesheet" href="/static/style.css"/>
+  <style>
+    #menu-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    
+    #menu-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #111;
+      text-align: center;
+      letter-spacing: -0.02em;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .form-group label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #333;
+      letter-spacing: 0.01em;
+    }
+    
+    .form-group input,
+    .form-group select {
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #333;
+      box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.1);
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .density-display {
+      font-size: 0.85rem;
+      color: #666;
+      font-weight: 500;
+    }
+    
+    #submit-btn {
+      padding: 0.9rem 1.5rem;
+      background: #111;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    
+    #submit-btn:hover {
+      background: #333;
+    }
+    
+    #submit-btn:active {
+      transform: scale(0.98);
+    }
+  </style>
 </head>
 <body>
 
-<div id="nonogram" class="loading">
-  <div id="top-row">
-    <div id="corner"></div>
-    <div id="col-hints"></div>
-  </div>
-  <div id="middle-row">
-    <div id="row-hints"></div>
-    <div id="grid-wrap">
-      <div id="grid"></div>
+<div id="menu-container">
+  <h1 id="menu-title">Nonogram</h1>
+  
+  <form id="game-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="rows">Rows</label>
+        <input type="number" id="rows" name="rows" min="2" max="99" value="15" required />
+      </div>
+      <div class="form-group">
+        <label for="cols">Columns</label>
+        <input type="number" id="cols" name="cols" min="2" max="99" value="15" required />
+      </div>
     </div>
-  </div>
-  <div id="details"></div>
-  <div id="error-msg"></div>
+
+    <div class="form-group">
+      <label for="seed">Random seed</label>
+      <input type="number" id="seed" name="seed" />
+    </div>
+    
+    <div class="form-group">
+      <label for="density">
+        Density: <span class="density-display" id="density-value">0.50</span>
+      </label>
+      <input type="range" id="density" name="density" min="0.3" max="0.7" step="0.01" value="0.5" />
+    </div>
+    
+    <div class="form-group">
+      <label for="random-function">Random Function</label>
+      <select id="random-function" name="random_function" required>
+        <option value="perlin2d">Perlin 2D</option>
+        <option value="random">Simplex</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="frequency">Frequency</label>
+      <input type="number" id="frequency" name="frequency" min="1" max="20" value="6" required />
+    </div>
+    
+    <button type="submit" id="submit-btn">Start Game</button>
+  </form>
 </div>
 
-<script src="/static/game.js"></script>
+<script>
+  const densityDisplay = document.getElementById('density-value');
+  const densityInput = document.getElementById('density');
+  const gameForm = document.getElementById('game-form');
+  
+  // Update density display as user adjusts slider
+  densityInput.addEventListener('input', (e) => {
+    densityDisplay.textContent = parseFloat(e.target.value).toFixed(2);
+  });
+  
+  // Handle form submission
+  gameForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const rows = document.getElementById('rows').value;
+    const cols = document.getElementById('cols').value;
+    const seed = document.getElementById('seed').value;
+    const density = document.getElementById('density').value;
+    const randomFunction = document.getElementById('random-function').value;
+    const frequency = document.getElementById('frequency').value;
+    
+    // Build params object, excluding empty seed
+    const paramObj = {
+      rows,
+      cols,
+      density,
+      random_function: randomFunction,
+      frequency
+    };
+    
+    // Only add seed if provided
+    if (seed) {
+      paramObj.seed = seed;
+    }
+    
+    // Redirect to game page with parameters
+    const params = new URLSearchParams(paramObj);
+    window.location.href = `/game?${params.toString()}`;
+  });
+</script>
 </body>
 </html>

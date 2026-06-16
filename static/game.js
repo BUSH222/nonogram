@@ -24,14 +24,31 @@
   const $errorMsg  = document.getElementById('error-msg');
 
   /* ── Boot ─────────────────────────────────────────────────────────────── */
-  fetchPuzzle();
-
+  fetchPuzzle();  
+  /* ── Get URL parameters ────────────────────────────────────────────── */
+  function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      rows: params.get('rows') ? parseInt(params.get('rows')) : undefined,
+      cols: params.get('cols') ? parseInt(params.get('cols')) : undefined,
+      density: params.get('density') ? parseFloat(params.get('density')) : undefined,
+      random_function: params.get('random_function') || undefined,
+      frequency: params.get('frequency') ? parseInt(params.get('frequency')) : undefined,
+      seed: params.get('seed') ? parseInt(params.get('seed')) : undefined
+    };
+  }
   /* ── Fetch ────────────────────────────────────────────────────────────── */
   async function fetchPuzzle() {
     $ng.classList.add('loading');
     $errorMsg.style.display = 'none';
     try {
-      const res  = await fetch('/new');
+      const params = getUrlParams();
+      // Filter out undefined values to avoid sending "undefined" strings
+      const filteredParams = Object.fromEntries(
+        Object.entries(params).filter(([, v]) => v !== undefined)
+      );
+      const queryString = new URLSearchParams(filteredParams).toString();
+      const res  = await fetch(`/new?${queryString}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       initPuzzle(data);
@@ -45,7 +62,7 @@
 
   /* ── Init ─────────────────────────────────────────────────────────────── */
   function initPuzzle(data) {
-    hints   = data.hints;   // [ [col hint arrays], [row hint arrays] ]
+    hints   = data.hints;   // [ [row hint arrays], [col hint arrays] ]
     details = data.details;
     rows    = details.rows;
     cols    = details.cols;
@@ -84,8 +101,8 @@
     $colHints.innerHTML = '';
     $rowHints.innerHTML = '';
 
-    const colHintData = hints[0]; // array of cols → each is array of numbers
-    const rowHintData = hints[1]; // array of rows → each is array of numbers
+    const colHintData = hints[1]; // array of cols → each is array of numbers
+    const rowHintData = hints[0]; // array of rows → each is array of numbers
 
     // ── Column hints ──────────────────────────────────────────────────────
     // Max numbers in any col hint → determines hint area height
