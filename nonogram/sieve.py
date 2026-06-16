@@ -1,4 +1,4 @@
-from main import Nonogram, Solver
+from .main import Nonogram, Solver
 
 seeds = []
 size = 15
