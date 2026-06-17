@@ -150,6 +150,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 manager.delete_game(game_id)
                 await websocket.send_json({"type": "delete", "payload": {"message": "Game deleted"}})
                 await websocket.close()
+                session.connections.discard(websocket)
                 return
             elif data["type"] == "ping":  # debug
                 await websocket.send_json({"type": "pong"})
@@ -158,6 +159,5 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
             await websocket.send_json({"received": data})
         except Exception as e:
             print(f"WebSocket error: {e}")
-            return
-        finally:
             session.connections.discard(websocket)
+            return
