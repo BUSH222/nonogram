@@ -1,302 +1,551 @@
 (function () {
-  /* ── Constants ───────────────────────────────────────────────────────── */
-  const MIN_CELL_PX  = 18;   // smallest cell before we scroll instead of shrinking
-  const MAX_CELL_PX  = 32;   // largest cell (comfortable for small puzzles)
-  const THIN_PX      = 1;    // thin border
-  const THICK_PX     = 2;    // thick border (every 5 cells + outer)
-  const MAX_HINT_H_PX = 180; // max height of the column-hint area
-  const HINT_PAD_PX  = 4;    // padding inside each hint cell
+  const MIN_CELL_PX = 18;
+  const MAX_CELL_PX = 32;
+  const THIN_PX = 1;
+  const THICK_PX = 2;
+  const MAX_HINT_H_PX = 180;
+  const HINT_PAD_PX = 4;
 
-  /* ── State ────────────────────────────────────────────────────────────── */
-  let rows, cols, state, hints, details;
-  let cellPx;
-  let isDragging   = false;
-  let dragMode     = null; // 'fill' | 'mark' | 'erase-fill' | 'erase-mark'
-  let dragStartVal = null;
+  const elements = {
+    nonogram: document.getElementById('nonogram'),
+    corner: document.getElementById('corner'),
+    colHints: document.getElementById('col-hints'),
+    rowHints: document.getElementById('row-hints'),
+    grid: document.getElementById('grid'),
+    details: document.getElementById('details'),
+    statusMsg: document.getElementById('status-msg'),
+    errorMsg: document.getElementById('error-msg'),
+  };
 
-  /* ── DOM refs ─────────────────────────────────────────────────────────── */
-  const $ng        = document.getElementById('nonogram');
-  const $corner    = document.getElementById('corner');
-  const $colHints  = document.getElementById('col-hints');
-  const $rowHints  = document.getElementById('row-hints');
-  const $grid      = document.getElementById('grid');
-  const $details   = document.getElementById('details');
-  const $errorMsg  = document.getElementById('error-msg');
+  const state = {
+    gameId: null,
+    rows: 0,
+    cols: 0,
+    board: [],
+    hints: null,
+    details: null,
+    solved: false,
+    cellPx: MIN_CELL_PX,
+    dragging: false,
+    dragValue: 0,
+    dragMode: null,
+    socket: null,
+    socketIntentionalClose: false,
+    reloadRequired: false,
+    boardReady: false,
+    failureAnnounced: false,
+    solvedAnnounced: false,
+    listenersAttached: false,
+  };
 
-  /* ── Boot ─────────────────────────────────────────────────────────────── */
-  fetchPuzzle();  
-  /* ── Get URL parameters ────────────────────────────────────────────── */
-  function getUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    return {
-      rows: params.get('rows') ? parseInt(params.get('rows')) : undefined,
-      cols: params.get('cols') ? parseInt(params.get('cols')) : undefined,
-      density: params.get('density') ? parseFloat(params.get('density')) : undefined,
-      random_function: params.get('random_function') || undefined,
-      frequency: params.get('frequency') ? parseInt(params.get('frequency')) : undefined,
-      seed: params.has('seed') ? params.get('seed') : undefined
-    };
+  const gameId = new URLSearchParams(window.location.search).get('id');
+
+  if (!gameId) {
+    announceFailure('Missing game id in the URL.');
+    return;
   }
 
-  function buildQueryString(params) {
-    const query = new URLSearchParams();
+  state.gameId = gameId;
+  attachRecoveryListeners();
+  attachBoardListeners();
+  connectSocket();
 
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        query.append(key, value);
-      }
+  window.addEventListener('resize', () => {
+    if (!state.boardReady) {
+      return;
+    }
+
+    computeCellSize();
+    renderBoard();
+  });
+
+  function getSocketUrl() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws/${state.gameId}`;
+  }
+
+  function connectSocket() {
+    elements.nonogram.classList.add('loading');
+    elements.nonogram.setAttribute('aria-busy', 'true');
+    setStatusMessage('Connecting to saved game...');
+    setErrorMessage('');
+
+    const socket = new WebSocket(getSocketUrl());
+    state.socket = socket;
+
+    socket.addEventListener('open', () => {
+      sendMessage({ type: 'get_state' });
     });
 
-    return query.toString();
+    socket.addEventListener('message', handleSocketMessage);
+    socket.addEventListener('error', () => {
+      announceFailure('Something failed while connecting to the game.');
+    });
+    socket.addEventListener('close', () => {
+      if (state.socketIntentionalClose || state.reloadRequired || state.solvedAnnounced) {
+        return;
+      }
+
+      announceFailure('The connection to the game was lost.');
+    });
   }
-  /* ── Fetch ────────────────────────────────────────────────────────────── */
-  async function fetchPuzzle() {
-    $ng.classList.add('loading');
-    $errorMsg.style.display = 'none';
+
+  function handleSocketMessage(event) {
+    let message;
+
     try {
-      const params = getUrlParams();
-      const queryString = buildQueryString(params);
-      const res  = await fetch(`/new?${queryString}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      initPuzzle(data);
-    } catch (e) {
-      $errorMsg.textContent = `Failed to load puzzle: ${e.message}`;
-      $errorMsg.style.display = 'block';
-    } finally {
-      $ng.classList.remove('loading');
+      message = JSON.parse(event.data);
+    } catch (error) {
+      announceFailure('Something failed while reading the game state.');
+      return;
+    }
+
+    if (!message || typeof message !== 'object') {
+      return;
+    }
+
+    if (message.received) {
+      return;
+    }
+
+    if (message.error) {
+      announceFailure(message.error);
+      return;
+    }
+
+    if (message.type === 'state') {
+      hydrateFromServer(message.payload || {});
+      return;
+    }
+
+    if (message.type === 'update') {
+      handleUpdateResponse(message.payload || {});
+      return;
+    }
+
+    if (message.type === 'reset') {
+      hydrateFromServer({
+        state: message.payload?.state,
+        height: state.rows,
+        width: state.cols,
+        hints: state.hints,
+        details: state.details,
+        solved: false,
+      });
+      return;
+    }
+
+    if (message.type === 'delete') {
+      state.socketIntentionalClose = true;
+      state.solved = true;
+      state.boardReady = false;
+      setStatusMessage('Game deleted.', 'solved');
+      return;
     }
   }
 
-  /* ── Init ─────────────────────────────────────────────────────────────── */
-  function initPuzzle(data) {
-    hints   = data.hints;   // [ [row hint arrays], [col hint arrays] ]
-    details = data.details;
-    rows    = details.rows;
-    cols    = details.cols;
+  function hydrateFromServer(payload) {
+    const height = Number(payload.height ?? payload.details?.rows ?? payload.state?.length ?? 0);
+    const width = Number(payload.width ?? payload.details?.cols ?? payload.state?.[0]?.length ?? 0);
 
-    // Build fresh state (all 0)
-    state = Array.from({ length: rows }, () => new Array(cols).fill(0));
+    if (!height || !width) {
+      announceFailure('Something failed while loading the puzzle.');
+      return;
+    }
+
+    state.rows = height;
+    state.cols = width;
+    state.hints = payload.hints || state.hints || [[], []];
+    state.details = {
+      ...(payload.details || {}),
+      rows: height,
+      cols: width,
+    };
+    state.solved = Boolean(payload.solved);
+    state.board = normalizeBoard(payload.state, height, width);
+    state.boardReady = true;
 
     computeCellSize();
-    renderHints();
-    renderGrid();
-    renderDetails();
-    attachGridEvents();
+    renderBoard();
+    elements.nonogram.classList.remove('loading');
+    elements.nonogram.setAttribute('aria-busy', 'false');
+    setErrorMessage('');
+    setStatusMessage(state.solved ? 'This puzzle is already solved.' : '');
   }
 
-  /* ── Cell size calculation ────────────────────────────────────────────── */
+  function normalizeBoard(board, height, width) {
+    if (!Array.isArray(board)) {
+      return Array.from({ length: height }, () => new Array(width).fill(0));
+    }
+
+    return Array.from({ length: height }, (_, rowIndex) => {
+      const row = Array.isArray(board[rowIndex]) ? board[rowIndex] : [];
+      return Array.from({ length: width }, (_, columnIndex) => Number(row[columnIndex] ?? 0));
+    });
+  }
+
   function computeCellSize() {
-    const availW = window.innerWidth  - 64;   // rough padding budget
-    const availH = window.innerHeight - 64;
-    // Dedicate ~40% of space to hints; the rest to the grid
-    const budgetW = availW * 0.7 / cols;
-    const budgetH = availH * 0.7 / rows;
-    cellPx = Math.min(MAX_CELL_PX, Math.max(MIN_CELL_PX, Math.floor(Math.min(budgetW, budgetH))));
+    const availableWidth = window.innerWidth - 64;
+    const availableHeight = window.innerHeight - 64;
+    const budgetWidth = (availableWidth * 0.7) / state.cols;
+    const budgetHeight = (availableHeight * 0.7) / state.rows;
+    state.cellPx = Math.min(MAX_CELL_PX, Math.max(MIN_CELL_PX, Math.floor(Math.min(budgetWidth, budgetHeight))));
   }
 
-  /* ── Border helpers ───────────────────────────────────────────────────── */
-  // Returns border thickness (px) for a given 0-based index boundary.
-  // boundary i = line between cell (i-1) and cell i (i=0 is outer left/top).
-  function borderW(i, total) {
-    if (i === 0 || i === total) return THICK_PX;   // outer edges
-    if (i % 5 === 0)            return THICK_PX;   // every-5 separator
+  function borderWidth(index, total) {
+    if (index === 0 || index === total) {
+      return THICK_PX;
+    }
+
+    if (index % 5 === 0) {
+      return THICK_PX;
+    }
+
     return THIN_PX;
   }
 
-  /* ── Render hints ─────────────────────────────────────────────────────── */
-  function renderHints() {
-    $colHints.innerHTML = '';
-    $rowHints.innerHTML = '';
-
-    const colHintData = hints[1]; // array of cols → each is array of numbers
-    const rowHintData = hints[0]; // array of rows → each is array of numbers
-
-    // ── Column hints ──────────────────────────────────────────────────────
-    // Max numbers in any col hint → determines hint area height
-    const maxColLen = Math.max(...colHintData.map(h => h.length), 1);
-    // Each number gets cellPx height; cap at MAX_HINT_H_PX
-    const hintAreaH = Math.min(maxColLen * cellPx, MAX_HINT_H_PX);
-
-    $colHints.style.height = `${hintAreaH}px`;
-
-    colHintData.forEach((nums, ci) => {
-      const el = document.createElement('div');
-      el.className = 'col-hint';
-      el.style.width  = `${cellPx}px`;
-      el.style.height = `${hintAreaH}px`;
-      el.style.paddingBottom = `${HINT_PAD_PX}px`;
-      // left border mirrors the cell grid vertical lines
-      el.style.borderLeft = `${borderW(ci, cols)}px solid #555`;
-      if (ci === cols - 1) el.style.borderRight = `${THICK_PX}px solid #555`;
-
-      nums.forEach((n, ni) => {
-        const span = document.createElement('span');
-        span.className   = 'hint-num';
-        span.textContent = n;
-        span.style.lineHeight = `${cellPx}px`;
-        span.dataset.axis = 'col';
-        span.dataset.idx  = ci;
-        span.dataset.num  = ni;
-        span.addEventListener('click', onHintClick);
-        el.appendChild(span);
-      });
-      $colHints.appendChild(el);
-    });
-
-    // ── Row hints ─────────────────────────────────────────────────────────
-    const maxRowLen = Math.max(...rowHintData.map(h => h.length), 1);
-    const hintAreaW = maxRowLen * cellPx;
-
-    rowHintData.forEach((nums, ri) => {
-      const el = document.createElement('div');
-      el.className = 'row-hint';
-      el.style.height     = `${cellPx}px`;
-      el.style.width      = `${hintAreaW}px`;
-      el.style.paddingRight = `${HINT_PAD_PX}px`;
-      el.style.gap        = `${Math.max(2, Math.floor(cellPx * 0.15))}px`;
-      // top border mirrors the cell grid horizontal lines
-      el.style.borderTop  = `${borderW(ri, rows)}px solid #555`;
-      if (ri === rows - 1) el.style.borderBottom = `${THICK_PX}px solid #555`;
-
-      nums.forEach((n, ni) => {
-        const span = document.createElement('span');
-        span.className   = 'hint-num';
-        span.textContent = n;
-        span.dataset.axis = 'row';
-        span.dataset.idx  = ri;
-        span.dataset.num  = ni;
-        span.addEventListener('click', onHintClick);
-        el.appendChild(span);
-      });
-      $rowHints.appendChild(el);
-    });
-
-    // ── Corner spacer ─────────────────────────────────────────────────────
-    const rowHintAreaW = Math.max(...rowHintData.map(h => h.length), 1) * cellPx;
-    $corner.style.width  = `${rowHintAreaW}px`;
-    $corner.style.height = `${hintAreaH}px`;
-    $corner.style.flexShrink = 0;
+  function renderBoard() {
+    renderHints();
+    renderGrid();
+    renderDetails();
   }
 
-  /* ── Render grid ──────────────────────────────────────────────────────── */
+  function renderHints() {
+    const hints = state.hints || [[], []];
+    const rowHints = hints[0] || [];
+    const colHints = hints[1] || [];
+
+    elements.colHints.innerHTML = '';
+    elements.rowHints.innerHTML = '';
+
+    const maxColumnLength = Math.max(...colHints.map((hint) => hint.length), 1);
+    const hintHeight = Math.min(maxColumnLength * state.cellPx, MAX_HINT_H_PX);
+    elements.colHints.style.height = `${hintHeight}px`;
+
+    colHints.forEach((numbers, columnIndex) => {
+      const hintColumn = document.createElement('div');
+      hintColumn.className = 'col-hint';
+      hintColumn.style.width = `${state.cellPx}px`;
+      hintColumn.style.height = `${hintHeight}px`;
+      hintColumn.style.paddingBottom = `${HINT_PAD_PX}px`;
+      hintColumn.style.borderLeft = `${borderWidth(columnIndex, state.cols)}px solid #555`;
+      if (columnIndex === state.cols - 1) {
+        hintColumn.style.borderRight = `${THICK_PX}px solid #555`;
+      }
+
+      numbers.forEach((number, hintIndex) => {
+        const hintNumber = document.createElement('span');
+        hintNumber.className = 'hint-num';
+        hintNumber.textContent = number;
+        hintNumber.style.lineHeight = `${state.cellPx}px`;
+        hintNumber.dataset.axis = 'col';
+        hintNumber.dataset.idx = columnIndex;
+        hintNumber.dataset.num = hintIndex;
+        hintNumber.addEventListener('click', handleHintClick);
+        hintColumn.appendChild(hintNumber);
+      });
+
+      elements.colHints.appendChild(hintColumn);
+    });
+
+    const maxRowLength = Math.max(...rowHints.map((hint) => hint.length), 1);
+    const hintWidth = maxRowLength * state.cellPx;
+
+    rowHints.forEach((numbers, rowIndex) => {
+      const hintRow = document.createElement('div');
+      hintRow.className = 'row-hint';
+      hintRow.style.height = `${state.cellPx}px`;
+      hintRow.style.width = `${hintWidth}px`;
+      hintRow.style.paddingRight = `${HINT_PAD_PX}px`;
+      hintRow.style.gap = `${Math.max(2, Math.floor(state.cellPx * 0.15))}px`;
+      hintRow.style.borderTop = `${borderWidth(rowIndex, state.rows)}px solid #555`;
+      if (rowIndex === state.rows - 1) {
+        hintRow.style.borderBottom = `${THICK_PX}px solid #555`;
+      }
+
+      numbers.forEach((number, hintIndex) => {
+        const hintNumber = document.createElement('span');
+        hintNumber.className = 'hint-num';
+        hintNumber.textContent = number;
+        hintNumber.dataset.axis = 'row';
+        hintNumber.dataset.idx = rowIndex;
+        hintNumber.dataset.num = hintIndex;
+        hintNumber.addEventListener('click', handleHintClick);
+        hintRow.appendChild(hintNumber);
+      });
+
+      elements.rowHints.appendChild(hintRow);
+    });
+
+    elements.corner.style.width = `${hintWidth}px`;
+    elements.corner.style.height = `${hintHeight}px`;
+    elements.corner.style.flexShrink = '0';
+  }
+
   function renderGrid() {
-    $grid.innerHTML = '';
-    $grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
-    $grid.style.gridTemplateRows    = `repeat(${rows}, ${cellPx}px)`;
+    elements.grid.innerHTML = '';
+    elements.grid.style.gridTemplateColumns = `repeat(${state.cols}, ${state.cellPx}px)`;
+    elements.grid.style.gridTemplateRows = `repeat(${state.rows}, ${state.cellPx}px)`;
 
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
+    const fragment = document.createDocumentFragment();
+
+    for (let rowIndex = 0; rowIndex < state.rows; rowIndex += 1) {
+      for (let columnIndex = 0; columnIndex < state.cols; columnIndex += 1) {
         const cell = document.createElement('div');
-        cell.className      = 'cell';
-        cell.dataset.r      = r;
-        cell.dataset.c      = c;
-        cell.style.width    = `${cellPx}px`;
-        cell.style.height   = `${cellPx}px`;
+        cell.className = 'cell';
+        cell.dataset.r = rowIndex;
+        cell.dataset.c = columnIndex;
+        cell.style.width = `${state.cellPx}px`;
+        cell.style.height = `${state.cellPx}px`;
+        cell.style.borderTop = `${borderWidth(rowIndex, state.rows)}px solid #555`;
+        cell.style.borderLeft = `${borderWidth(columnIndex, state.cols)}px solid #555`;
 
-        // Borders: each cell owns its top and left border;
-        // rightmost col owns right, bottommost row owns bottom.
-        cell.style.borderTop    = `${borderW(r, rows)}px solid #555`;
-        cell.style.borderLeft   = `${borderW(c, cols)}px solid #555`;
-        if (c === cols - 1) cell.style.borderRight  = `${THICK_PX}px solid #555`;
-        if (r === rows - 1) cell.style.borderBottom = `${THICK_PX}px solid #555`;
+        if (columnIndex === state.cols - 1) {
+          cell.style.borderRight = `${THICK_PX}px solid #555`;
+        }
 
-        // Render current state
-        applyCellState(cell, state[r][c]);
-        $grid.appendChild(cell);
+        if (rowIndex === state.rows - 1) {
+          cell.style.borderBottom = `${THICK_PX}px solid #555`;
+        }
+
+        applyCellState(cell, state.board[rowIndex][columnIndex]);
+        fragment.appendChild(cell);
       }
     }
+
+    elements.grid.appendChild(fragment);
   }
 
-  function applyCellState(cell, val) {
-    cell.classList.remove('filled', 'marked');
-    if (val === 1)  cell.classList.add('filled');
-    if (val === -1) cell.classList.add('marked');
-  }
-
-  function cellEl(r, c) {
-    return $grid.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
-  }
-
-  /* ── Drag logic ───────────────────────────────────────────────────────── */
-  function cycleStateLeft(current) {
-    // left-click: empty→filled→empty
-    return current === 1 ? 0 : 1;
-  }
-  function cycleStateRight(current) {
-    // right-click: empty→marked→empty
-    return current === -1 ? 0 : -1;
-  }
-
-  function attachGridEvents() {
-    $grid.addEventListener('mousedown', onMouseDown);
-    $grid.addEventListener('mouseover', onMouseOver);
-    window.addEventListener('mouseup',  onMouseUp);
-    $grid.addEventListener('contextmenu', e => e.preventDefault());
-  }
-
-  function getCellCoords(e) {
-    const el = e.target.closest('.cell');
-    if (!el) return null;
-    return { r: +el.dataset.r, c: +el.dataset.c, el };
-  }
-
-  function onMouseDown(e) {
-    if (e.button !== 0 && e.button !== 2) return;
-    e.preventDefault();
-    const hit = getCellCoords(e);
-    if (!hit) return;
-
-    isDragging   = true;
-    const { r, c, el } = hit;
-    const current = state[r][c];
-
-    if (e.button === 0) {
-      const next = cycleStateLeft(current);
-      dragMode     = next === 1  ? 'fill'       : 'erase-fill';
-      dragStartVal = next;
-    } else {
-      const next = cycleStateRight(current);
-      dragMode     = next === -1 ? 'mark'       : 'erase-mark';
-      dragStartVal = next;
+  function renderDetails() {
+    if (!state.details) {
+      elements.details.textContent = '';
+      return;
     }
 
-    applyToCell(r, c, el);
+    const details = state.details;
+    const parts = [
+      `${details.rows}×${details.cols}`,
+      `seed ${details.seed}`,
+      `density ${details.density}`,
+      details.random_function,
+      `freq ${details.frequency}`,
+    ].filter(Boolean);
+
+    elements.details.textContent = parts.join('  ·  ');
   }
 
-  function onMouseOver(e) {
-    if (!isDragging) return;
-    const hit = getCellCoords(e);
-    if (!hit) return;
-    applyToCell(hit.r, hit.c, hit.el);
+  function applyCellState(cell, value) {
+    cell.classList.remove('filled', 'marked');
+
+    if (value === 1) {
+      cell.classList.add('filled');
+      return;
+    }
+
+    if (value === -1) {
+      cell.classList.add('marked');
+    }
   }
 
-  function onMouseUp() { isDragging = false; dragMode = null; }
+  function attachBoardListeners() {
+    if (state.listenersAttached) {
+      return;
+    }
 
-  function applyToCell(r, c, el) {
-    // Only overwrite cells that are in the correct starting state for this drag
-    const current = state[r][c];
-    if (dragMode === 'fill'       && current !== 0  && current !== 1)  return;
-    if (dragMode === 'erase-fill' && current !== 1  && current !== 0)  return;
-    if (dragMode === 'mark'       && current !== 0  && current !== -1) return;
-    if (dragMode === 'erase-mark' && current !== -1 && current !== 0)  return;
-
-    state[r][c] = dragStartVal;
-    applyCellState(el, dragStartVal);
+    state.listenersAttached = true;
+    elements.grid.addEventListener('mousedown', handleGridMouseDown);
+    elements.grid.addEventListener('mouseover', handleGridMouseOver);
+    elements.grid.addEventListener('contextmenu', (event) => event.preventDefault());
+    window.addEventListener('mouseup', handleGridMouseUp);
   }
 
-  /* ── Hint click ───────────────────────────────────────────────────────── */
-  function onHintClick(e) {
-    e.stopPropagation();
-    e.target.classList.toggle('highlighted');
+  function attachRecoveryListeners() {
+    document.addEventListener('pointerdown', handleReloadRecovery, true);
+    document.addEventListener('keydown', handleReloadRecovery, true);
   }
 
-  /* ── Details ──────────────────────────────────────────────────────────── */
-  function renderDetails() {
-    if (!details) return;
-    $details.textContent =
-      `${details.rows}×${details.cols}  ·  seed ${details.seed}  ·  ` +
-      `density ${details.density}  ·  ${details.random_function}  ·  freq ${details.frequency}`;
+  function handleReloadRecovery(event) {
+    if (!state.reloadRequired) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    window.location.reload();
   }
 
+  function handleGridMouseDown(event) {
+    if (!canInteract()) {
+      return;
+    }
+
+    if (event.button !== 0 && event.button !== 2) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const hit = getCellHit(event);
+    if (!hit) {
+      return;
+    }
+
+    state.dragging = true;
+
+    const currentValue = state.board[hit.row][hit.column];
+    if (event.button === 0) {
+      const nextValue = currentValue === 1 ? 0 : 1;
+      state.dragMode = nextValue === 1 ? 'fill' : 'erase-fill';
+      state.dragValue = nextValue;
+    } else {
+      const nextValue = currentValue === -1 ? 0 : -1;
+      state.dragMode = nextValue === -1 ? 'mark' : 'erase-mark';
+      state.dragValue = nextValue;
+    }
+
+    applyMove(hit.row, hit.column, hit.element);
+  }
+
+  function handleGridMouseOver(event) {
+    if (!state.dragging || !canInteract()) {
+      return;
+    }
+
+    const hit = getCellHit(event);
+    if (!hit) {
+      return;
+    }
+
+    applyMove(hit.row, hit.column, hit.element);
+  }
+
+  function handleGridMouseUp() {
+    state.dragging = false;
+    state.dragMode = null;
+  }
+
+  function getCellHit(event) {
+    const cell = event.target.closest('.cell');
+    if (!cell) {
+      return null;
+    }
+
+    return {
+      row: Number(cell.dataset.r),
+      column: Number(cell.dataset.c),
+      element: cell,
+    };
+  }
+
+  function applyMove(rowIndex, columnIndex, element) {
+    const currentValue = state.board[rowIndex][columnIndex];
+
+    if (state.dragMode === 'fill' && currentValue !== 0 && currentValue !== 1) {
+      return;
+    }
+
+    if (state.dragMode === 'erase-fill' && currentValue !== 1 && currentValue !== 0) {
+      return;
+    }
+
+    if (state.dragMode === 'mark' && currentValue !== 0 && currentValue !== -1) {
+      return;
+    }
+
+    if (state.dragMode === 'erase-mark' && currentValue !== -1 && currentValue !== 0) {
+      return;
+    }
+
+    if (currentValue === state.dragValue) {
+      return;
+    }
+
+    state.board[rowIndex][columnIndex] = state.dragValue;
+    applyCellState(element, state.dragValue);
+
+    if (!sendMessage({
+      type: 'update',
+      payload: {
+        x: rowIndex,
+        y: columnIndex,
+        value: state.dragValue,
+      },
+    })) {
+      return;
+    }
+  }
+
+  function handleHintClick(event) {
+    event.stopPropagation();
+    event.target.classList.toggle('highlighted');
+  }
+
+  function handleUpdateResponse(payload) {
+    if (payload.solved) {
+      handleSolved();
+    }
+  }
+
+  function handleSolved() {
+    if (state.solvedAnnounced) {
+      return;
+    }
+
+    state.solvedAnnounced = true;
+    state.solved = true;
+    state.dragging = false;
+    state.dragMode = null;
+    setStatusMessage('The nonogram has been solved.', 'solved');
+    alert('The nonogram has been solved.');
+
+    state.socketIntentionalClose = true;
+    sendMessage({ type: 'delete' });
+  }
+
+  function canInteract() {
+    return state.boardReady && !state.reloadRequired && !state.solved;
+  }
+
+  function sendMessage(message) {
+    if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+      announceFailure('Something failed while sending a game update.');
+      return false;
+    }
+
+    try {
+      state.socket.send(JSON.stringify(message));
+      return true;
+    } catch (error) {
+      announceFailure('Something failed while sending a game update.');
+      return false;
+    }
+  }
+
+  function announceFailure(message) {
+    if (state.failureAnnounced) {
+      state.reloadRequired = true;
+      state.boardReady = false;
+      return;
+    }
+
+    state.failureAnnounced = true;
+    state.reloadRequired = true;
+    state.boardReady = false;
+    state.dragging = false;
+    state.dragMode = null;
+    elements.nonogram.classList.remove('loading');
+    setStatusMessage(message, 'error');
+    setErrorMessage(message);
+    alert(message);
+  }
+
+  function setStatusMessage(message, kind = 'normal') {
+    elements.statusMsg.textContent = message;
+    elements.statusMsg.dataset.state = kind;
+  }
+
+  function setErrorMessage(message) {
+    elements.errorMsg.textContent = message;
+    elements.errorMsg.style.display = message ? 'block' : 'none';
+  }
 })();

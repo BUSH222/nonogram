@@ -1,133 +1,241 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #ffffff;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 2rem;
-      min-height: 100vh;
-    }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 2rem;
+  min-height: 100vh;
+}
 
-    /* ── Puzzle container ─────────────────────────────────────────────── */
-    #nonogram {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-start;
-      user-select: none;
-    }
+/* ── Puzzle container ─────────────────────────────────────────────── */
+#nonogram {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  user-select: none;
+}
 
-    /* ── Top area: corner + column hints ─────────────────────────────── */
-    #top-row {
-      display: flex;
-      align-items: flex-end;   /* hints sit flush against the grid top */
-      flex-shrink: 0;
-    }
+/* ── Top area: corner + column hints ─────────────────────────────── */
+#top-row {
+  display: flex;
+  align-items: flex-end;   /* hints sit flush against the grid top */
+  flex-shrink: 0;
+}
 
-    #corner {
-      flex-shrink: 0;
-      /* width & height set by JS to match hint-row height + left-hint width */
-    }
+#corner {
+  flex-shrink: 0;
+  /* width & height set by JS to match hint-row height + left-hint width */
+}
 
-    #col-hints {
-      display: flex;
-      flex-direction: row;
-      overflow: hidden;          /* clip, not scroll — height is capped */
-      flex-shrink: 0;
-    }
+#col-hints {
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;          /* clip, not scroll — height is capped */
+  flex-shrink: 0;
+}
 
-    .col-hint {
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      align-items: center;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
+.col-hint {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
 
-    /* ── Middle area: row hints + grid ───────────────────────────────── */
-    #middle-row {
-      display: flex;
-      flex-direction: row;
-      overflow: auto;            /* scroll when grid overflows viewport */
-    }
+/* ── Middle area: row hints + grid ───────────────────────────────── */
+#middle-row {
+  display: flex;
+  flex-direction: row;
+  overflow: auto;            /* scroll when grid overflows viewport */
+}
 
-    #row-hints {
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-    }
+#row-hints {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
 
-    .row-hint {
-      display: flex;
-      flex-direction: row;
-      justify-content: flex-end;
-      align-items: center;
-      flex-shrink: 0;
-    }
+.row-hint {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
+}
 
-    /* ── Hint numbers ─────────────────────────────────────────────────── */
-    .hint-num {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: #111;
-      line-height: 1;
-      cursor: pointer;
-      transition: color 0.15s;
-      white-space: nowrap;
-    }
-    .hint-num.highlighted { color: rgb(237, 112, 45); }
+/* ── Hint numbers ─────────────────────────────────────────────────── */
+.hint-num {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #111;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.hint-num.highlighted { color: rgb(237, 112, 45); }
 
-    /* ── The grid ─────────────────────────────────────────────────────── */
-    #grid-wrap {
-      flex-shrink: 0;
-    }
+/* ── The grid ─────────────────────────────────────────────────────── */
+#grid-wrap {
+  flex-shrink: 0;
+}
 
-    #grid {
-      display: grid;
-      /* grid-template-columns/rows set dynamically by JS */
-    }
+#grid {
+  display: grid;
+  /* grid-template-columns/rows set dynamically by JS */
+}
 
-    /* ── Individual cells ─────────────────────────────────────────────── */
-    .cell {
-      position: relative;
-      cursor: pointer;
-      background: #fff;
-      transition: background 0.07s;
-      /* border drawn via box-shadow trick — see JS for border assignment */
-    }
+/* ── Individual cells ─────────────────────────────────────────────── */
+.cell {
+  position: relative;
+  cursor: pointer;
+  background: #fff;
+  transition: background 0.07s;
+  /* border drawn via box-shadow trick — see JS for border assignment */
+}
 
-    /* cell states */
-    .cell.filled  { background: #111; }
-    .cell.marked  { background: #fff; }
+/* cell states */
+.cell.filled  { background: #111; }
+.cell.marked  { background: #fff; }
 
-    /* X marker */
-    .cell.marked::after {
-      content: '❌';
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.65em;
-      line-height: 1;
-      pointer-events: none;
-    }
+/* X marker */
+.cell.marked::after {
+  content: '❌';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65em;
+  line-height: 1;
+  pointer-events: none;
+}
 
-    /* ── Details strip ────────────────────────────────────────────────── */
-    #details {
-      margin-top: 1rem;
-      font-size: 0.68rem;
-      color: #aaa;
-      letter-spacing: 0.02em;
-    }
+/* ── Details strip ────────────────────────────────────────────────── */
+#details {
+  margin-top: 1rem;
+  font-size: 0.68rem;
+  color: #aaa;
+  letter-spacing: 0.02em;
+}
 
-    /* ── Loading / error states ───────────────────────────────────────── */
-    #nonogram.loading { opacity: 0.4; pointer-events: none; }
-    #error-msg {
-      color: #c00;
-      font-size: 0.8rem;
-      margin-top: 0.5rem;
-      display: none;
-    }
+/* ── Loading / error states ───────────────────────────────────────── */
+#nonogram.loading { opacity: 0.4; pointer-events: none; }
+#error-msg {
+  color: #c00;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  display: none;
+}
+
+#status-msg {
+  min-height: 1.2rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+#status-msg[data-state="error"] {
+  color: #a11;
+}
+
+#status-msg[data-state="solved"] {
+  color: #0a6b2e;
+}
+
+/* -- Menu styles -- */
+#menu-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+#menu-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #111;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 0.01em;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #333;
+  box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.density-display {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+#submit-btn {
+  padding: 0.9rem 1.5rem;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+#submit-btn:hover {
+  background: #333;
+}
+
+#submit-btn:active {
+  transform: scale(0.98);
+}
+
+#form-status {
+  min-height: 1.25rem;
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+}
+
+#submit-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
+}

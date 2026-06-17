@@ -26,6 +26,37 @@ def game_page(request: fastapi.Request):
     return templates.TemplateResponse(request=request, name="game.html", context={"request": request})
 
 
+@app.get("/check_solvable")
+def check_solvable_get(request: fastapi.Request):
+    return templates.TemplateResponse(request=request, name="check_solvable.html", context={"request": request})
+
+
+@app.post("/check_solvable")
+def check_solvable_post(
+    rows: int,
+    cols: int,
+    density: float,
+    random_function: str,
+    frequency: int,
+    seed: str,
+):
+    if seed.isdecimal():
+        seed = int(seed)
+    else:
+        seed = hash(seed) % (2**16)
+
+    nonogram = Nonogram()
+    nonogram.generate_board(
+        rows=rows,
+        cols=cols,
+        seed=seed,
+        density=density,
+        random_function=random_function,
+        frequency=frequency,
+    )
+    return {"solvable": nonogram.solvable}
+
+
 @app.get("/new")
 def create_new_nonogram(
     rows: int = 15,
@@ -83,17 +114,24 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 x = data["payload"]["x"]
                 y = data["payload"]["y"]
                 value = data["payload"]["value"]
-                if 0 <= x < game.cols and 0 <= y < game.rows:
+                if 0 <= x < game.details['cols'] and 0 <= y < game.details['rows']:
                     # do better sanitization here later
                     game.move(x, y, value)
                     solved = game.solved
+                    print(game)
+                    print("Move submitted: ", x, y, value, "Solved:", solved)
                     await websocket.send_json({"type": "update",
                                                "payload": {"x": x, "y": y, "value": value, "solved": solved}})
             elif data["type"] == "get_state":
                 await websocket.send_json({"type": "state",
-                                           "payload": {"state": game.state, "solved": game.solved}})
+                                           "payload": {"state": game.state,
+                                                       "height": game.details['rows'],
+                                                       "width": game.details['cols'],
+                                                       "hints": game.hints,
+                                                       "details": game.details,
+                                                       "solved": game.solved}})
             elif data["type"] == "reset":
-                game.state = [[0 for x in range(game.cols)] for y in range(game.rows)]
+                game.state = [[0 for x in range(game.details['cols'])] for y in range(game.details['rows'])]
                 await websocket.send_json({"type": "reset", "payload": {"state": game.state}})
             elif data["type"] == "delete":
                 manager.delete_game(game_id)
@@ -107,6 +145,6 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
             await websocket.send_json({"received": data})
         except Exception as e:
             print(f"WebSocket error: {e}")
-            break
+            return
 
     await websocket.close()

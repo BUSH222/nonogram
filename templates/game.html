@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nonogram</title>
+  <title>Nonogram - Game</title>
   <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
 
-<div id="nonogram" class="loading">
+<div id="nonogram" class="loading" aria-busy="true">
   <div id="top-row">
     <div id="corner"></div>
     <div id="col-hints"></div>
@@ -20,7 +20,8 @@
     </div>
   </div>
   <div id="details"></div>
-  <div id="error-msg"></div>
+  <div id="status-msg" aria-live="polite">Connecting to saved game...</div>
+  <div id="error-msg" aria-live="polite"></div>
 </div>
 
 <script src="/static/game.js"></script>

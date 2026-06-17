@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nonogram - New Game</title>
+  <title>Nonogram - Solvability Checker</title>
   <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
 
 <div id="menu-container">
-  <h1 id="menu-title">Nonogram</h1>
+  <h1 id="menu-title">Nonogram solvability checker</h1>
   
   <form id="game-form">
     <div class="form-row">
@@ -48,7 +48,7 @@
       <input type="number" id="frequency" name="frequency" min="1" max="20" value="6" required />
     </div>
     
-    <button type="submit" id="submit-btn">Start Game</button>
+    <button type="submit" id="submit-btn">Check solvability</button>
   </form>
 
   <div id="form-status" aria-live="polite"></div>
@@ -82,23 +82,23 @@
     }
 
     submitButton.disabled = true;
-    submitButton.textContent = 'Creating...';
-    formStatus.textContent = 'Creating game...';
+    submitButton.textContent = 'Checking...';
+    formStatus.textContent = 'Checking solvability...';
 
     try {
-      const response = await fetch(`/new?${params.toString()}`);
+      const response = await fetch(`/check_solvable?${params.toString()}`, {method: 'POST'});
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const data = await response.json();
-      if (!data.game_id) {
-        throw new Error('Missing game id');
+      if (!data.solvable) {
+        formStatus.textContent = 'Nonogram is not solvable!';
+      } else {
+        formStatus.textContent = 'Nonogram is solvable!';
       }
-
-      window.location.assign(`/game?id=${encodeURIComponent(data.game_id)}`);
     } catch (error) {
-      const message = `Failed to create game: ${error.message}`;
+      const message = `Failed to check solvability: ${error.message}`;
       formStatus.textContent = message;
       alert(message);
     } finally {

@@ -1,6 +1,7 @@
 import random
 from nonogram.const import BLACK, RANDOM_FUNCTIONS, WHITE, X_CHAR
 from nonogram.noise import Perlin2D
+from nonogram.solver import Solver
 
 
 class Nonogram:
@@ -9,6 +10,19 @@ class Nonogram:
         self.state = []  # user progress, 1 for black, 0 for white, -1 for x
         self.hints = [[], []]  # top hints bar first
         self.details = {}
+        self._solvable = None
+
+    @property
+    def solvable(self):
+        if self._solvable is not None:
+            return self._solvable
+        else:
+            solver = Solver(self, do_step=False)
+            if solver.solve():
+                self._solvable = True
+            else:
+                self._solvable = False
+            return self._solvable
 
     @property
     def solved(self):
