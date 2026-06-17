@@ -69,9 +69,10 @@
     elements.nonogram.setAttribute('aria-busy', 'true');
     setStatusMessage('Connecting to saved game...');
     setErrorMessage('');
-
+    
     const socket = new WebSocket(getSocketUrl());
     state.socket = socket;
+    setStatusMessage('');
 
     socket.addEventListener('open', () => {
       sendMessage({ type: 'get_state' });
