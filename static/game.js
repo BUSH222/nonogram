@@ -34,7 +34,7 @@
       density: params.get('density') ? parseFloat(params.get('density')) : undefined,
       random_function: params.get('random_function') || undefined,
       frequency: params.get('frequency') ? parseInt(params.get('frequency')) : undefined,
-      seed: params.get('seed') ? parseInt(params.get('seed')) : undefined
+      seed: params.get('seed') ? params.get('seed') : undefined
     };
   }
   /* ── Fetch ────────────────────────────────────────────────────────────── */
@@ -43,11 +43,7 @@
     $errorMsg.style.display = 'none';
     try {
       const params = getUrlParams();
-      // Filter out undefined values to avoid sending "undefined" strings
-      const filteredParams = Object.fromEntries(
-        Object.entries(params).filter(([, v]) => v !== undefined)
-      );
-      const queryString = new URLSearchParams(filteredParams).toString();
+      const queryString = new URLSearchParams(params).toString();
       const res  = await fetch(`/new?${queryString}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
