@@ -8,8 +8,9 @@ class GameManager:
 
     def create_game(self, game_data: Nonogram):
         game_id = str(uuid4())
-        self.games[game_id] = game_data
-        return game_id, game_data
+        session = GameSession(game_data)
+        self.games[game_id] = session
+        return game_id, session
 
     def get_game(self, game_id):
         return self.games.get(game_id)
@@ -19,3 +20,19 @@ class GameManager:
             del self.games[game_id]
             return True
         return False
+
+
+class GameSession:
+    def __init__(self, game_data: Nonogram):
+        self.game_data = game_data
+        self.connections = set()
+
+    async def broadcast(self, message):
+        dead = []
+        for ws in self.connections:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.connections.remove(ws)

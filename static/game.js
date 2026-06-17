@@ -119,7 +119,7 @@
     }
 
     if (message.type === 'update') {
-      handleUpdateResponse(message.payload || {});
+      hydrateFromServer(message.payload || {});
       return;
     }
 
@@ -170,7 +170,9 @@
     elements.nonogram.classList.remove('loading');
     elements.nonogram.setAttribute('aria-busy', 'false');
     setErrorMessage('');
-    setStatusMessage(state.solved ? 'This puzzle is already solved.' : '');
+    if (payload.solved) {
+      handleSolved();
+    }
   }
 
   function normalizeBoard(board, height, width) {
@@ -478,12 +480,6 @@
   function handleHintClick(event) {
     event.stopPropagation();
     event.target.classList.toggle('highlighted');
-  }
-
-  function handleUpdateResponse(payload) {
-    if (payload.solved) {
-      handleSolved();
-    }
   }
 
   function handleSolved() {

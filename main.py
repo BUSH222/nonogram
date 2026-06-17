@@ -57,6 +57,14 @@ def check_solvable_post(
     return {"solvable": nonogram.solvable}
 
 
+@app.post("/check_solvable_by_game_id")
+def check_solvable_by_game_id(game_id: str):
+    session = manager.get_game(game_id)
+    if not session:
+        return {"error": "Game not found"}
+    return {"solvable": session.game_data.solvable}
+
+
 @app.get("/new")
 def create_new_nonogram(
     rows: int = 15,
@@ -82,11 +90,11 @@ def create_new_nonogram(
         random_function=random_function,
         frequency=frequency,
     )
-    game_id, game = manager.create_game(nonogram)
+    game_id, session = manager.create_game(nonogram)
     return {"game_id": game_id,
             "width": cols,
             "height": rows,
-            "hints": game.hints,
+            "hints": session.game_data.hints,
             "details": {
                 "seed": seed,
                 "density": density,
@@ -98,11 +106,14 @@ def create_new_nonogram(
 @app.websocket("/ws/{game_id}")
 async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
     await websocket.accept()
-    game = manager.get_game(game_id)
-    if not game:
+    session = manager.get_game(game_id)
+    if not session:
         await websocket.send_json({"error": "Game not found"})
         await websocket.close()
         return
+
+    session.connections.add(websocket)
+    game = session.game_data
 
     while True:
         try:
@@ -117,11 +128,13 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 if 0 <= x < game.details['cols'] and 0 <= y < game.details['rows']:
                     # do better sanitization here later
                     game.move(x, y, value)
-                    solved = game.solved
-                    print(game)
-                    print("Move submitted: ", x, y, value, "Solved:", solved)
-                    await websocket.send_json({"type": "update",
-                                               "payload": {"x": x, "y": y, "value": value, "solved": solved}})
+                    await session.broadcast({"type": "update",
+                                             "payload": {"state": game.state,
+                                                         "height": game.details['rows'],
+                                                         "width": game.details['cols'],
+                                                         "hints": game.hints,
+                                                         "details": game.details,
+                                                         "solved": game.solved}})
             elif data["type"] == "get_state":
                 await websocket.send_json({"type": "state",
                                            "payload": {"state": game.state,
@@ -130,7 +143,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                                                        "hints": game.hints,
                                                        "details": game.details,
                                                        "solved": game.solved}})
-            elif data["type"] == "reset":
+            elif data["type"] == "reset":  # for later
                 game.state = [[0 for x in range(game.details['cols'])] for y in range(game.details['rows'])]
                 await websocket.send_json({"type": "reset", "payload": {"state": game.state}})
             elif data["type"] == "delete":
@@ -138,7 +151,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 await websocket.send_json({"type": "delete", "payload": {"message": "Game deleted"}})
                 await websocket.close()
                 return
-            elif data["type"] == "ping":
+            elif data["type"] == "ping":  # debug
                 await websocket.send_json({"type": "pong"})
             else:
                 await websocket.send_json({"error": "Unknown message type"})
@@ -146,5 +159,5 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
         except Exception as e:
             print(f"WebSocket error: {e}")
             return
-
-    await websocket.close()
+        finally:
+            session.connections.discard(websocket)
