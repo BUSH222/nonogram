@@ -34,8 +34,20 @@
       density: params.get('density') ? parseFloat(params.get('density')) : undefined,
       random_function: params.get('random_function') || undefined,
       frequency: params.get('frequency') ? parseInt(params.get('frequency')) : undefined,
-      seed: params.get('seed') ? params.get('seed') : undefined
+      seed: params.has('seed') ? params.get('seed') : undefined
     };
+  }
+
+  function buildQueryString(params) {
+    const query = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, value);
+      }
+    });
+
+    return query.toString();
   }
   /* ── Fetch ────────────────────────────────────────────────────────────── */
   async function fetchPuzzle() {
@@ -43,7 +55,7 @@
     $errorMsg.style.display = 'none';
     try {
       const params = getUrlParams();
-      const queryString = new URLSearchParams(params).toString();
+      const queryString = buildQueryString(params);
       const res  = await fetch(`/new?${queryString}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
