@@ -7,88 +7,44 @@ class Solver:
         self.do_step = do_step
 
     def solve(self):
-        # find all possible combinations, then fill in overlaps
-        # horisontal
-        changed = True
+        rows, cols = len(self.nonogram.state), len(self.nonogram.state[0])
+        dirty_rows, dirty_cols = set(range(rows)), set(range(cols))
         iteration = 0
-        while changed:
-            changed = False
+
+        while dirty_rows or dirty_cols:
             if self.nonogram.solved:
                 return iteration
-            for i in range(len(self.nonogram.state)):
+
+            next_dirty_cols = set()
+            for i in dirty_rows:
                 row = self.nonogram.state[i]
-                hint = self.nonogram.hints[0][i]
-                if all([cell != 0 for cell in row]):
+                if all(cell != 0 for cell in row):
                     continue
-                overlaps = [1 for _ in range(len(row))]  # black
-                overlaps1 = [1 for _ in range(len(row))]  # white
-                for r in self._generate_rows(len(row), hint):
-                    # conformity check
-                    skiprow = False
-                    for p in range(len(row)):
-                        if row[p] == 1 and r[p] != 1:
-                            skiprow = True
-                            break
-                        if row[p] == -1 and r[p] != 0:
-                            skiprow = True
-                            break
-                    if skiprow:
-                        continue
-
-                    for j in range(len(row)):
-                        overlaps[j] &= r[j]
-                        overlaps1[j] &= (1-r[j])
-
-                for a, b in enumerate(overlaps):
-                    if self.nonogram.state[i][a] == 0 and b == 1:
+                overlaps, overlaps1 = self._line_overlap(row, self.nonogram.hints[0][i])
+                for a, (b, w) in enumerate(zip(overlaps, overlaps1)):
+                    if row[a] == 0 and b == 1:
                         self.nonogram.move(i, a, 1)
-                        changed = True
-                    if self.nonogram.state[i][a] == 0 and overlaps1[a] == 1:
+                        next_dirty_cols.add(a)
+                    elif row[a] == 0 and w == 1:
                         self.nonogram.move(i, a, -1)
-                        changed = True
+                        next_dirty_cols.add(a)
 
-            if self.do_step:
-                print(f"Iteration {iteration} in progress, horizontal solved, state:")
-                self.nonogram.print_board(target='state')
-                input()
-
-            # vertical
-            for j in range(len(self.nonogram.state[0])):
-                row = [self.nonogram.state[i][j] for i in range(len(self.nonogram.state))]
-                hint = self.nonogram.hints[1][j]
-                if all([cell != 0 for cell in row]):
+            next_dirty_rows = set()
+            for j in dirty_cols | next_dirty_cols:   # include cols just touched too
+                col = [self.nonogram.state[i][j] for i in range(rows)]
+                if all(cell != 0 for cell in col):
                     continue
-                overlaps = [1 for _ in range(len(row))]  # black
-                overlaps1 = [1 for _ in range(len(row))]  # white
-                for r in self._generate_rows(len(row), hint):
-                    # conformity check
-                    skiprow = False
-                    for p in range(len(row)):
-                        if row[p] == 1 and r[p] != 1:
-                            skiprow = True
-                            break
-                        if row[p] == -1 and r[p] != 0:
-                            skiprow = True
-                            break
-                    if skiprow:
-                        continue
-
-                    for k in range(len(row)):
-                        overlaps[k] &= r[k]
-                        overlaps1[k] &= (1-r[k])
-                for a, b in enumerate(overlaps):
-                    if self.nonogram.state[a][j] == 0 and b == 1:
+                overlaps, overlaps1 = self._line_overlap(col, self.nonogram.hints[1][j])
+                for a, (b, w) in enumerate(zip(overlaps, overlaps1)):
+                    if col[a] == 0 and b == 1:
                         self.nonogram.move(a, j, 1)
-                        changed = True
-                    if self.nonogram.state[a][j] == 0 and overlaps1[a] == 1:
+                        next_dirty_rows.add(a)
+                    elif col[a] == 0 and w == 1:
                         self.nonogram.move(a, j, -1)
-                        changed = True
-            iteration += 1
+                        next_dirty_rows.add(a)
 
-            if self.do_step:
-                print(f"Iteration {iteration} completed, current state:")
-                self.nonogram.print_board(target='state')
-                input()
+            dirty_rows, dirty_cols = next_dirty_rows, next_dirty_cols
+            iteration += 1
         return 0
 
     def _generate_rows(self, length, runs):
@@ -113,3 +69,25 @@ class Solver:
                     row.extend([0] * (1 + values[i + 1]))
             row.extend([0] * values[-1])
             yield row
+
+    def _line_overlap(self, line, hints):
+        # generate all possible lines for hints, then find overlaps
+        overlaps = [1 for _ in range(len(line))]  # black
+        overlaps1 = [1 for _ in range(len(line))]  # white
+        for r in self._generate_rows(len(line), hints):
+            # conformity check
+            skiprow = False
+            for p in range(len(line)):
+                if line[p] == 1 and r[p] != 1:
+                    skiprow = True
+                    break
+                if line[p] == -1 and r[p] != 0:
+                    skiprow = True
+                    break
+            if skiprow:
+                continue
+
+            for j in range(len(line)):
+                overlaps[j] &= r[j]
+                overlaps1[j] &= (1-r[j])
+        return overlaps, overlaps1
