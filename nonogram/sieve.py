@@ -1,7 +1,10 @@
 from nonogram.nonogram import Nonogram
 from nonogram.solver import Solver
 import argparse
-import tqdm
+try:
+    import tqdm
+except ImportError:
+    tqdm = None
 
 
 def sieve(start, stop, size, density, freq, number_limit=5, verbose=True, use_tqdm=False):
