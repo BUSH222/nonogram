@@ -125,7 +125,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 x = data["payload"]["x"]
                 y = data["payload"]["y"]
                 value = data["payload"]["value"]
-                if 0 <= x < game.details['cols'] and 0 <= y < game.details['rows']:
+                if 0 <= x < game.details['rows'] and 0 <= y < game.details['cols']:
                     # do better sanitization here later
                     game.move(x, y, value)
                     await session.broadcast({"type": "update",
