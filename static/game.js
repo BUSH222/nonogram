@@ -23,6 +23,7 @@
     cols: 0,
     board: [],
     hints: null,
+    userHighlightedHints: null, // [rowHighlights, colHighlights], mirrors server's [axis][idx][num]
     details: null,
     solved: false,
     cellPx: MIN_CELL_PX,
@@ -69,7 +70,7 @@
     elements.nonogram.setAttribute('aria-busy', 'true');
     setStatusMessage('Connecting to saved game...');
     setErrorMessage('');
-    
+
     const socket = new WebSocket(getSocketUrl());
     state.socket = socket;
     setStatusMessage('');
@@ -131,6 +132,7 @@
         height: state.rows,
         width: state.cols,
         hints: state.hints,
+        user_highlighted_hints: state.userHighlightedHints,
         details: state.details,
         solved: false,
       });
@@ -138,21 +140,22 @@
     }
 
     if (message.type === 'highlight_hint') {
-      axis = message.payload?.axis;
-      idx = message.payload?.idx;
-      num = message.payload?.num;
-      highlighted = message.payload?.highlighted;
-      axisrowcol = axis === 0 ? 'row' : 'col';
+      const axis = message.payload?.axis;
+      const idx = message.payload?.idx;
+      const num = message.payload?.num;
+      const highlighted = Boolean(message.payload?.highlighted);
 
-      const selector = `.hint-num[data-axis="${axisrowcol}"][data-idx="${idx}"][data-num="${num}"]`;
+      setHighlightState(axis, idx, num, highlighted);
+
+      const axisAttr = axis === 0 ? 'row' : 'col';
+      const selector = `.hint-num[data-axis="${axisAttr}"][data-idx="${idx}"][data-num="${num}"]`;
       const hintEl = elements.nonogram.querySelector(selector);
 
       if (hintEl) {
-        hintEl.classList.toggle('highlighted', Boolean(highlighted));
+        hintEl.classList.toggle('highlighted', highlighted);
       }
 
       return;
-      
     }
 
     if (message.type === 'delete') {
@@ -162,6 +165,19 @@
       setStatusMessage('Game deleted.', 'solved');
       return;
     }
+  }
+
+  function setHighlightState(axis, idx, num, highlighted) {
+    if (!state.userHighlightedHints || axis == null || idx == null || num == null) {
+      return;
+    }
+
+    const axisHighlights = state.userHighlightedHints[axis];
+    if (!axisHighlights || !axisHighlights[idx]) {
+      return;
+    }
+
+    axisHighlights[idx][num] = highlighted;
   }
 
   function hydrateFromServer(payload) {
@@ -176,6 +192,10 @@
     state.rows = height;
     state.cols = width;
     state.hints = payload.hints || state.hints || [[], []];
+    state.userHighlightedHints = normalizeHighlights(
+      payload.user_highlighted_hints || state.userHighlightedHints,
+      state.hints
+    );
     state.details = {
       ...(payload.details || {}),
       rows: height,
@@ -193,6 +213,22 @@
     if (payload.solved) {
       handleSolved();
     }
+  }
+
+  function normalizeHighlights(highlights, hints) {
+    // Ensures the highlight structure always matches the current hints shape,
+    // so a stale/missing highlight payload can't desync rendering or throw.
+    const safeHints = hints || [[], []];
+    const source = Array.isArray(highlights) ? highlights : [[], []];
+
+    return [0, 1].map((axis) => {
+      const hintAxis = safeHints[axis] || [];
+      const sourceAxis = source[axis] || [];
+      return hintAxis.map((hintLine, idx) => {
+        const sourceLine = sourceAxis[idx] || [];
+        return hintLine.map((_, num) => Boolean(sourceLine[num]));
+      });
+    });
   }
 
   function normalizeBoard(board, height, width) {
@@ -236,6 +272,9 @@
     const hints = state.hints || [[], []];
     const rowHints = hints[0] || [];
     const colHints = hints[1] || [];
+    const highlights = state.userHighlightedHints || [[], []];
+    const rowHighlights = highlights[0] || [];
+    const colHighlights = highlights[1] || [];
 
     elements.colHints.innerHTML = '';
     elements.rowHints.innerHTML = '';
@@ -263,6 +302,9 @@
         hintNumber.dataset.axis = 'col';
         hintNumber.dataset.idx = columnIndex;
         hintNumber.dataset.num = hintIndex;
+        if (colHighlights[columnIndex]?.[hintIndex]) {
+          hintNumber.classList.add('highlighted');
+        }
         hintNumber.addEventListener('click', handleHintClick);
         hintColumn.appendChild(hintNumber);
       });
@@ -292,6 +334,9 @@
         hintNumber.dataset.axis = 'row';
         hintNumber.dataset.idx = rowIndex;
         hintNumber.dataset.num = hintIndex;
+        if (rowHighlights[rowIndex]?.[hintIndex]) {
+          hintNumber.classList.add('highlighted');
+        }
         hintNumber.addEventListener('click', handleHintClick);
         hintRow.appendChild(hintNumber);
       });

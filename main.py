@@ -133,6 +133,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                                                          "height": game.details['rows'],
                                                          "width": game.details['cols'],
                                                          "hints": game.hints,
+                                                         "user_highlighted_hints": game.user_highlighted_hints,
                                                          "details": game.details,
                                                          "solved": game.solved}})
             elif data["type"] == "get_state":
@@ -141,6 +142,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                                                        "height": game.details['rows'],
                                                        "width": game.details['cols'],
                                                        "hints": game.hints,
+                                                       "user_highlighted_hints": game.user_highlighted_hints,
                                                        "details": game.details,
                                                        "solved": game.solved}})
             elif data["type"] == "highlight_hint":
