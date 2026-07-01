@@ -93,6 +93,7 @@
 
   function handleSocketMessage(event) {
     let message;
+    // console.log('Received socket message:', event.data);  // DEBUG
 
     try {
       message = JSON.parse(event.data);
@@ -134,6 +135,24 @@
         solved: false,
       });
       return;
+    }
+
+    if (message.type === 'highlight_hint') {
+      axis = message.payload?.axis;
+      idx = message.payload?.idx;
+      num = message.payload?.num;
+      highlighted = message.payload?.highlighted;
+      axisrowcol = axis === 0 ? 'row' : 'col';
+
+      const selector = `.hint-num[data-axis="${axisrowcol}"][data-idx="${idx}"][data-num="${num}"]`;
+      const hintEl = elements.nonogram.querySelector(selector);
+
+      if (hintEl) {
+        hintEl.classList.toggle('highlighted', Boolean(highlighted));
+      }
+
+      return;
+      
     }
 
     if (message.type === 'delete') {
@@ -480,7 +499,10 @@
 
   function handleHintClick(event) {
     event.stopPropagation();
-    event.target.classList.toggle('highlighted');
+    const axis = event.target.dataset.axis;
+    const idx = Number(event.target.dataset.idx);
+    const num = Number(event.target.dataset.num);
+    sendMessage({ type: 'highlight_hint', payload: { axis, idx, num } });
   }
 
   function handleSolved() {

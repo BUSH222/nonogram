@@ -143,6 +143,19 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                                                        "hints": game.hints,
                                                        "details": game.details,
                                                        "solved": game.solved}})
+            elif data["type"] == "highlight_hint":
+                axis = data["payload"]["axis"]
+                idx = data["payload"]["idx"]
+                num = data["payload"]["num"]
+                assert axis in ['row', 'column']
+                axis = 0 if axis == 'row' else 1
+                if 0 <= idx < len(game.hints[axis]) and 0 <= num < len(game.hints[axis][idx]):
+                    game.user_highlighted_hints[axis][idx][num] = not game.user_highlighted_hints[axis][idx][num]
+                    await session.broadcast({"type": "highlight_hint",
+                                             "payload": {"axis": axis,
+                                                         "idx": idx,
+                                                         "num": num,
+                                                         "highlighted": game.user_highlighted_hints[axis][idx][num]}})
             elif data["type"] == "reset":  # for later
                 game.state = [[0 for x in range(game.details['cols'])] for y in range(game.details['rows'])]
                 await websocket.send_json({"type": "reset", "payload": {"state": game.state}})

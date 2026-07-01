@@ -9,6 +9,7 @@ class Nonogram:
         self.board = []  # 1 is black, 0 is white - ground truth
         self.state = []  # user progress, 1 for black, 0 for white, -1 for x
         self.hints = [[], []]  # top hints bar first
+        self.user_highlighted_hints = [[], []]  # arrays of bools mirroring hints, for UI purposes
         self.details = {}
         self._solvable = None
 
@@ -93,6 +94,8 @@ class Nonogram:
                 ver_state[j].remove(0)
 
         self.hints = [hor_state, ver_state]
+        self.user_highlighted_hints = [[False for _ in range(len(h))] for h in hor_state], \
+                                      [[False for _ in range(len(h))] for h in ver_state]
 
     def get_board(self):
         return {"state": self.state, "hints": self.hints, "details": self.details}
