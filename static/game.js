@@ -94,7 +94,6 @@
 
   function handleSocketMessage(event) {
     let message;
-    // console.log('Received socket message:', event.data);  // DEBUG
 
     try {
       message = JSON.parse(event.data);
@@ -168,6 +167,7 @@
   }
 
   function setHighlightState(axis, idx, num, highlighted) {
+    console.log(state.userHighlightedHints, axis, idx, num, highlighted);
     if (!state.userHighlightedHints || axis == null || idx == null || num == null) {
       return;
     }

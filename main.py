@@ -149,7 +149,7 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 axis = data["payload"]["axis"]
                 idx = data["payload"]["idx"]
                 num = data["payload"]["num"]
-                assert axis in ['row', 'column']
+                assert axis in ['row', 'col']
                 axis = 0 if axis == 'row' else 1
                 if 0 <= idx < len(game.hints[axis]) and 0 <= num < len(game.hints[axis][idx]):
                     game.user_highlighted_hints[axis][idx][num] = not game.user_highlighted_hints[axis][idx][num]
