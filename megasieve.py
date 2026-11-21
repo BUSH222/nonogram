@@ -1,20 +1,10 @@
 import os
 
+from nonogram.sieve import default_frequency as freq
 from nonogram.sieve import sieve
 
 rows = list(range(3, 41))
 cols = list(range(3, 41))
-
-
-def freq(r, c):
-    if r <= 5 or c <= 5:
-        return 8
-    if r <= 10 or c <= 10:
-        return 7
-    if r <= 20 or c <= 20:
-        return 6
-    else:
-        return 5
 
 
 seed_limit = 10000

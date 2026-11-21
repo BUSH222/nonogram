@@ -25,7 +25,12 @@
 
     <div class="form-group">
       <label for="seed">Random seed</label>
-      <input type="text" id="seed" name="seed" />
+      <div class="seed-row">
+        <input type="text" id="seed" name="seed" />
+        <button type="button" id="seedbank-btn" data-sizes='{{ seedbank_sizes | tojson }}' disabled>
+          From seedbank
+        </button>
+      </div>
     </div>
     
     <div class="form-group">
@@ -64,7 +69,52 @@
   densityInput.addEventListener('input', (event) => {
     densityDisplay.textContent = parseFloat(event.target.value).toFixed(2);
   });
-  
+
+  // Seed bank: pre-sieved seeds known to be solvable by logic alone, only for some sizes.
+  const rowsInput = document.getElementById('rows');
+  const colsInput = document.getElementById('cols');
+  const seedInput = document.getElementById('seed');
+  const randomFunctionInput = document.getElementById('random-function');
+  const frequencyInput = document.getElementById('frequency');
+  const seedbankButton = document.getElementById('seedbank-btn');
+  const seedbankSizes = new Set(JSON.parse(seedbankButton.dataset.sizes).map(([r, c]) => `${r}x${c}`));
+
+  function updateSeedbankButton() {
+    const available = seedbankSizes.has(`${Number(rowsInput.value)}x${Number(colsInput.value)}`);
+    seedbankButton.disabled = !available;
+    seedbankButton.title = available
+      ? 'Fill in a random seed that is guaranteed solvable'
+      : 'No seed bank for this board size';
+  }
+
+  rowsInput.addEventListener('input', updateSeedbankButton);
+  colsInput.addEventListener('input', updateSeedbankButton);
+  updateSeedbankButton();
+
+  seedbankButton.addEventListener('click', async () => {
+    seedbankButton.disabled = true;
+    try {
+      const params = new URLSearchParams({ rows: rowsInput.value, cols: colsInput.value });
+      const response = await fetch(`/seedbank/random?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Bank seeds are only solvable with the settings they were sieved with, so fill those in too.
+      const data = await response.json();
+      seedInput.value = data.seed;
+      densityInput.value = data.density;
+      densityDisplay.textContent = Number(data.density).toFixed(2);
+      randomFunctionInput.value = data.random_function;
+      frequencyInput.value = data.frequency;
+      formStatus.textContent = 'Filled in a solvable seed from the seed bank.';
+    } catch (error) {
+      formStatus.textContent = `Failed to get a seed from the seed bank: ${error.message}`;
+    } finally {
+      updateSeedbankButton();
+    }
+  });
+
   gameForm.addEventListener('submit', async (event) => {
     event.preventDefault();
 

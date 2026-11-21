@@ -1,8 +1,11 @@
+import json
 import random
 import zlib
+from pathlib import Path
+from typing import Any
 
 import fastapi
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -16,6 +19,18 @@ templates = Jinja2Templates(directory="templates")
 manager = GameManager()
 
 
+def load_seedbank(directory: Path) -> dict[tuple[int, int], dict[str, Any]]:
+    """Load the solvable seeds written by build_seedbank.py, keyed by (rows, cols)."""
+    bank = {}
+    for path in directory.glob("*.json"):
+        data = json.loads(path.read_text())
+        bank[(data["rows"], data["cols"])] = data
+    return bank
+
+
+seedbank = load_seedbank(Path("seedbank"))
+
+
 def seed_to_int(seed: str) -> int:
     # crc32 rather than hash(): str hashes are randomized per process, so the same text seed
     # would give a different puzzle after every server restart.
@@ -24,7 +39,27 @@ def seed_to_int(seed: str) -> int:
 
 @app.get("/")
 def read_root(request: fastapi.Request):
-    return templates.TemplateResponse(request=request, name="index.html", context={"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"request": request, "seedbank_sizes": sorted(seedbank)},
+    )
+
+
+@app.get("/seedbank/random")
+def seedbank_random(rows: int, cols: int):
+    """A random solvable seed for this size, with the settings it must be generated with."""
+    bank = seedbank.get((rows, cols))
+    if bank is None:
+        raise HTTPException(status_code=404, detail=f"No seed bank for {rows}x{cols}")
+    seed, difficulty = random.choice(bank["seeds"])
+    return {
+        "seed": seed,
+        "difficulty": difficulty,
+        "density": bank["density"],
+        "random_function": bank["random_function"],
+        "frequency": bank["frequency"],
+    }
 
 
 @app.get("/game")

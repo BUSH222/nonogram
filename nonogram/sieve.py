@@ -1,4 +1,5 @@
 import argparse
+import itertools
 
 from nonogram.nonogram import Nonogram
 from nonogram.solver import Solver
@@ -9,12 +10,27 @@ except ImportError:
     tqdm = None
 
 
-def sieve(start, stop, rows, cols, density, freq, number_limit=5, verbose=True, use_tqdm=False):
+def default_frequency(rows, cols):
+    """Perlin frequency that gives good-looking puzzles for a board size: smaller boards need busier noise."""
+    if rows <= 5 or cols <= 5:
+        return 8
+    if rows <= 10 or cols <= 10:
+        return 7
+    if rows <= 20 or cols <= 20:
+        return 6
+    return 5
+
+
+def sieve(start, stop, rows, cols, density, freq, number_limit=5, verbose=True, use_tqdm=False, target=None):
+    """Return [seed, difficulty] for each line-solvable seed in [start, stop).
+
+    With target set, stops as soon as that many solvable seeds are found; stop may then be None (no upper bound).
+    """
+    assert stop is not None or target is not None, "need stop or target, or the sieve never ends"
     seeds = []
+    seed_range = range(start, stop) if stop is not None else itertools.count(start)
     if use_tqdm:
-        seed_range = tqdm.tqdm(range(start, stop), desc="Processing seeds", unit="seeds")
-    else:
-        seed_range = range(start, stop)
+        seed_range = tqdm.tqdm(seed_range, desc="Processing seeds", unit="seeds")
     for seed in seed_range:
         n = Nonogram()
         n.generate_board(rows=rows, cols=cols, seed=seed, density=density, frequency=freq)
@@ -26,6 +42,8 @@ def sieve(start, stop, rows, cols, density, freq, number_limit=5, verbose=True, 
             if verbose and not use_tqdm:
                 print(result, end=" ", flush=True)
             seeds.append([seed, result])
+            if target is not None and len(seeds) >= target:
+                break
         else:
             if verbose and not use_tqdm:
                 print(".", end="", flush=True)
