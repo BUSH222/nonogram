@@ -1,14 +1,12 @@
 class Perlin2D:
     def __init__(self, seed):
         self.seed = seed
-        self.gradients = [
-            (1, 0), (-1, 0), (0, 1), (0, -1),
-            (1, 1), (-1, 1), (1, -1), (-1, -1)
-        ]
+        self.gradients = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)]
         self.permutation = self._generate_permutation(seed)
 
     def _generate_permutation(self, seed):
         import random
+
         random.seed(seed)
         p = list(range(256))
         random.shuffle(p)
@@ -51,4 +49,4 @@ class Perlin2D:
         nx1 = self._lerp(n01, n11, u)
         result = self._lerp(nx0, nx1, v)
 
-        return (result+1)/2
+        return (result + 1) / 2

@@ -1,5 +1,8 @@
+from typing import TYPE_CHECKING
 from uuid import uuid4
-from nonogram.nonogram import Nonogram
+
+if TYPE_CHECKING:
+    from nonogram.nonogram import Nonogram
 
 
 class GameManager:

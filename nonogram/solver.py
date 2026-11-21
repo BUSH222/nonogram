@@ -21,7 +21,7 @@ class Solver:
                 if all(cell != 0 for cell in row):
                     continue
                 overlaps, overlaps1 = self._line_overlap(row, self.nonogram.hints[0][i])
-                for a, (b, w) in enumerate(zip(overlaps, overlaps1)):
+                for a, (b, w) in enumerate(zip(overlaps, overlaps1, strict=True)):
                     if row[a] == 0 and b == 1:
                         self.nonogram.move(i, a, 1)
                         next_dirty_cols.add(a)
@@ -30,12 +30,12 @@ class Solver:
                         next_dirty_cols.add(a)
 
             next_dirty_rows = set()
-            for j in dirty_cols | next_dirty_cols:   # include cols just touched too
+            for j in dirty_cols | next_dirty_cols:  # include cols just touched too
                 col = [self.nonogram.state[i][j] for i in range(rows)]
                 if all(cell != 0 for cell in col):
                     continue
                 overlaps, overlaps1 = self._line_overlap(col, self.nonogram.hints[1][j])
-                for a, (b, w) in enumerate(zip(overlaps, overlaps1)):
+                for a, (b, w) in enumerate(zip(overlaps, overlaps1, strict=True)):
                     if col[a] == 0 and b == 1:
                         self.nonogram.move(a, j, 1)
                         next_dirty_rows.add(a)
@@ -89,5 +89,5 @@ class Solver:
 
             for j in range(len(line)):
                 overlaps[j] &= r[j]
-                overlaps1[j] &= (1-r[j])
+                overlaps1[j] &= 1 - r[j]
         return overlaps, overlaps1

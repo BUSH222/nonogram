@@ -1,6 +1,6 @@
-from nonogram.sieve import sieve
 import os
 
+from nonogram.sieve import sieve
 
 rows = list(range(3, 41))
 cols = list(range(3, 41))
@@ -18,14 +18,16 @@ def freq(r, c):
 
 
 seed_limit = 10000
-seed_limit_exceptions = {"5x5": 100000,
-                         "10x10": 100000,
-                         "15x15": 1000000,
-                         "20x20": 1000000,
-                         "25x25": 100000,
-                         "30x30": 50000,
-                         "35x35": 50000,
-                         "40x40": 50000}
+seed_limit_exceptions = {
+    "5x5": 100000,
+    "10x10": 100000,
+    "15x15": 1000000,
+    "20x20": 1000000,
+    "25x25": 100000,
+    "30x30": 50000,
+    "35x35": 50000,
+    "40x40": 50000,
+}
 start_at = [3, 3]
 results_folder = "sieve_results"
 os.makedirs(results_folder, exist_ok=True)

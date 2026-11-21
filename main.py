@@ -1,13 +1,12 @@
+import random
+
 import fastapi
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from typing import Optional
-
 from gamemanager import GameManager
 from nonogram.nonogram import Nonogram
-import random
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -40,10 +39,7 @@ def check_solvable_post(
     frequency: int,
     seed: str,
 ):
-    if seed.isdecimal():
-        seed = int(seed)
-    else:
-        seed = hash(seed) % (2**16)
+    seed = int(seed) if seed.isdecimal() else hash(seed) % (2**16)
 
     nonogram = Nonogram()
     nonogram.generate_board(
@@ -72,7 +68,7 @@ def create_new_nonogram(
     density: float = 0.5,
     random_function: str = "perlin2d",
     frequency: int = 6,
-    seed: Optional[str] = None,
+    seed: str | None = None,
 ):
     if seed in (None, "", "undefined", "NaN", "null"):
         seed = random.randint(0, 2**16 - 1)
@@ -91,16 +87,18 @@ def create_new_nonogram(
         frequency=frequency,
     )
     game_id, session = manager.create_game(nonogram)
-    return {"game_id": game_id,
-            "width": cols,
-            "height": rows,
-            "hints": session.game_data.hints,
-            "details": {
-                "seed": seed,
-                "density": density,
-                "random_function": random_function,
-                "frequency": frequency,
-            }}
+    return {
+        "game_id": game_id,
+        "width": cols,
+        "height": rows,
+        "hints": session.game_data.hints,
+        "details": {
+            "seed": seed,
+            "density": density,
+            "random_function": random_function,
+            "frequency": frequency,
+        },
+    }
 
 
 @app.websocket("/ws/{game_id}")
@@ -125,41 +123,59 @@ async def websocket_endpoint(websocket: fastapi.WebSocket, game_id: str):
                 x = data["payload"]["x"]
                 y = data["payload"]["y"]
                 value = data["payload"]["value"]
-                if 0 <= x < game.details['rows'] and 0 <= y < game.details['cols']:
+                if 0 <= x < game.details["rows"] and 0 <= y < game.details["cols"]:
                     # do better sanitization here later
                     game.move(x, y, value)
-                    await session.broadcast({"type": "update",
-                                             "payload": {"state": game.state,
-                                                         "height": game.details['rows'],
-                                                         "width": game.details['cols'],
-                                                         "hints": game.hints,
-                                                         "user_highlighted_hints": game.user_highlighted_hints,
-                                                         "details": game.details,
-                                                         "solved": game.solved}})
+                    await session.broadcast(
+                        {
+                            "type": "update",
+                            "payload": {
+                                "state": game.state,
+                                "height": game.details["rows"],
+                                "width": game.details["cols"],
+                                "hints": game.hints,
+                                "user_highlighted_hints": game.user_highlighted_hints,
+                                "details": game.details,
+                                "solved": game.solved,
+                            },
+                        }
+                    )
             elif data["type"] == "get_state":
-                await websocket.send_json({"type": "state",
-                                           "payload": {"state": game.state,
-                                                       "height": game.details['rows'],
-                                                       "width": game.details['cols'],
-                                                       "hints": game.hints,
-                                                       "user_highlighted_hints": game.user_highlighted_hints,
-                                                       "details": game.details,
-                                                       "solved": game.solved}})
+                await websocket.send_json(
+                    {
+                        "type": "state",
+                        "payload": {
+                            "state": game.state,
+                            "height": game.details["rows"],
+                            "width": game.details["cols"],
+                            "hints": game.hints,
+                            "user_highlighted_hints": game.user_highlighted_hints,
+                            "details": game.details,
+                            "solved": game.solved,
+                        },
+                    }
+                )
             elif data["type"] == "highlight_hint":
                 axis = data["payload"]["axis"]
                 idx = data["payload"]["idx"]
                 num = data["payload"]["num"]
-                assert axis in ['row', 'col']
-                axis = 0 if axis == 'row' else 1
+                assert axis in ["row", "col"]
+                axis = 0 if axis == "row" else 1
                 if 0 <= idx < len(game.hints[axis]) and 0 <= num < len(game.hints[axis][idx]):
                     game.user_highlighted_hints[axis][idx][num] = not game.user_highlighted_hints[axis][idx][num]
-                    await session.broadcast({"type": "highlight_hint",
-                                             "payload": {"axis": axis,
-                                                         "idx": idx,
-                                                         "num": num,
-                                                         "highlighted": game.user_highlighted_hints[axis][idx][num]}})
+                    await session.broadcast(
+                        {
+                            "type": "highlight_hint",
+                            "payload": {
+                                "axis": axis,
+                                "idx": idx,
+                                "num": num,
+                                "highlighted": game.user_highlighted_hints[axis][idx][num],
+                            },
+                        }
+                    )
             elif data["type"] == "reset":  # for later
-                game.state = [[0 for x in range(game.details['cols'])] for y in range(game.details['rows'])]
+                game.state = [[0 for x in range(game.details["cols"])] for y in range(game.details["rows"])]
                 await websocket.send_json({"type": "reset", "payload": {"state": game.state}})
             elif data["type"] == "delete":
                 manager.delete_game(game_id)
