@@ -1,4 +1,5 @@
 import random
+import zlib
 
 import fastapi
 from fastapi import FastAPI
@@ -13,6 +14,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 manager = GameManager()
+
+
+def seed_to_int(seed: str) -> int:
+    # crc32 rather than hash(): str hashes are randomized per process, so the same text seed
+    # would give a different puzzle after every server restart.
+    return int(seed) if seed.isdecimal() else zlib.crc32(seed.encode()) % (2**16)
 
 
 @app.get("/")
@@ -39,13 +46,13 @@ def check_solvable_post(
     frequency: int,
     seed: str,
 ):
-    seed = int(seed) if seed.isdecimal() else hash(seed) % (2**16)
+    seed_int = seed_to_int(seed)
 
     nonogram = Nonogram()
     nonogram.generate_board(
         rows=rows,
         cols=cols,
-        seed=seed,
+        seed=seed_int,
         density=density,
         random_function=random_function,
         frequency=frequency,
@@ -70,18 +77,16 @@ def create_new_nonogram(
     frequency: int = 6,
     seed: str | None = None,
 ):
-    if seed in (None, "", "undefined", "NaN", "null"):
-        seed = random.randint(0, 2**16 - 1)
-    elif seed.isdecimal():
-        seed = int(seed)
+    if seed is None or seed in ("", "undefined", "NaN", "null"):
+        seed_int = random.randint(0, 2**16 - 1)
     else:
-        seed = hash(seed) % (2**16)
+        seed_int = seed_to_int(seed)
 
     nonogram = Nonogram()
     nonogram.generate_board(
         rows=rows,
         cols=cols,
-        seed=seed,
+        seed=seed_int,
         density=density,
         random_function=random_function,
         frequency=frequency,
@@ -93,7 +98,7 @@ def create_new_nonogram(
         "height": rows,
         "hints": session.game_data.hints,
         "details": {
-            "seed": seed,
+            "seed": seed_int,
             "density": density,
             "random_function": random_function,
             "frequency": frequency,

@@ -16,15 +16,13 @@ class Nonogram:
 
     @property
     def solvable(self):
-        if self._solvable is not None:
-            return self._solvable
-        else:
-            solver = Solver(self, do_step=False)
-            if solver.solve():
-                self._solvable = True
-            else:
-                self._solvable = False
-            return self._solvable
+        if self._solvable is None:
+            # Solve a blank copy: the solver writes into state, which must not touch the players' board.
+            probe = Nonogram()
+            probe.hints = self.hints
+            probe.state = [[0] * len(row) for row in self.board]
+            self._solvable = Solver(probe, do_step=False).solve() is not None
+        return self._solvable
 
     @property
     def solved(self):
@@ -90,6 +88,7 @@ class Nonogram:
         self.state = [[0 for x in range(cols)] for y in range(rows)]
 
     def compute_hints(self):
+        self._solvable = None  # hints changed, so any cached solvability is stale
         hor_state, ver_state = [], []  # 1 list for each hint type, horisontal and vertical
         for i in range(len(self.board)):
             hor_state.append(

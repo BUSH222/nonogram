@@ -38,7 +38,7 @@ for r in rows:
             continue
         print(f"Processing {r}x{c} grid...")
         real_seed_limit = seed_limit_exceptions.get(f"{r}x{c}", seed_limit)
-        results = sieve(0, real_seed_limit, r, 0.5, freq(r, c), number_limit=5, verbose=True, use_tqdm=False)
+        results = sieve(0, real_seed_limit, r, c, 0.5, freq(r, c), number_limit=5, verbose=True, use_tqdm=False)
         with open(os.path.join(results_folder, f"{r}x{c}_{freq(r, c)}_{real_seed_limit}.txt"), "w") as f:
             for seed, res in results:
                 f.write(f"{seed}, {res}\n")

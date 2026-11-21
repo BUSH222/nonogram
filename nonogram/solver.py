@@ -6,7 +6,8 @@ class Solver:
         self.nonogram = nonogram
         self.do_step = do_step
 
-    def solve(self):
+    def solve(self) -> int | None:
+        """Solve by line logic, in place. Returns the number of passes needed, or None if stuck."""
         rows, cols = len(self.nonogram.state), len(self.nonogram.state[0])
         dirty_rows, dirty_cols = set(range(rows)), set(range(cols))
         iteration = 0
@@ -45,9 +46,12 @@ class Solver:
 
             dirty_rows, dirty_cols = next_dirty_rows, next_dirty_cols
             iteration += 1
-        return 0
+        return iteration if self.nonogram.solved else None
 
     def _generate_rows(self, length, runs):
+        if not runs:  # empty line: the only arrangement is all white
+            yield [0] * length
+            return
         total_black = sum(runs)
         extra = length - (total_black + len(runs) - 1)
         assert extra >= 0
